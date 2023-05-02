@@ -1,8 +1,8 @@
 =======================================================================
-Red Hat Product Demo System Command Line Labs
+Red Hat Demo Platform Command Line Labs
 =======================================================================
 
-.. warning:: The steps assume you are using the Red Hat Demo System**
+.. warning:: The steps assume you are using the Red Hat Demo Platform**
 
 .. note:: This project is under active development.
 

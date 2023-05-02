@@ -3,6 +3,6 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "rhpds-portworx"
-authors = [{name = "Matt LeVan", email = "mlevan@purestorage.com"}]
+name = "rhdp-pxe"
+authors = [{name = "Bhavin Shah", email = "bshah@purestorage.com"}]
 dynamic = ["version", "description"]

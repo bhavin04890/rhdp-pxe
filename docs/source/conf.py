@@ -2,9 +2,9 @@
 
 # -- Project information
 
-project = 'rhpds-portworx'
-copyright = '2022, Matt LeVan, Portworx'
-author = 'Matt LeVan, Portworx'
+project = 'rhdp-pxe'
+copyright = '2023, Portworx by Pure Storage'
+author = 'Bhavin Shah, Portworx by Pure Storage'
 
 release = '0.1'
 version = '0.1.0'
