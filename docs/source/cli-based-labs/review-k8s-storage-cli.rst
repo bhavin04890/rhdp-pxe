@@ -1,54 +1,38 @@
 =======================================
-Lab 02 - Understand Kubernetes Storage
+Lab 02 - StorageClasses, RWO, and RWX Volumes
 =======================================
 
+In this scenario, you'll learn about Portworx Enterprise StorageClass parameters and deploy demo applications that use RWO (ReadWriteOnce) and RWX (ReadWriteMany) Persistent Volumes provisioned by Portworx Enterprise.
 
-In this step, we will create a StorageClass for Portworx volumes.
-
-Understand StorageClass
+Deploying Portworx Storage Classes
 -----------------------
 
-A `StorageClass <https://kubernetes.io/docs/concepts/storage/storage-classes/>`__ provides a way for administrators to describe the “classes” of storage on their Kubernetes cluster. Before we create a volume in Kubernetes, we have to create a StorageClass.
+Portworx provides the ability for users to leverage a unified storage pool to dynamically provision both Block-based (ReadWriteOnce) and File-based (ReadWriteMany) volumes for applications running on your Kubernetes cluster without having to provision multiple CSI drivers/plugins, and without the need for specific backing storage devices!
 
-For example, the following is a Portworx StorageClass whose volumes have replication factor of 3 and high IO priority. \* Replication factor of 3 means the data for the volume is replicated on 3 different nodes in the cluster \* High IO priority means Portworx will use storage devices that are classified into the high IO profile (for e.g SSDs).
-
-.. code-block:: yaml
-   
-   kind: StorageClass
-   apiVersion: storage.k8s.io/v1
-   metadata:
-     name: px-repl3-sc
-   provisioner: pxd.portworx.com
-   parameters:
-     repl: "3"
-     priority_io: "high"
-   reclaimPolicy: Delete
-   volumeBindingMode: Immediate
-
-
-Create StorageClass
--------------------
-
-Let's create the above storage class.
+### Task 1: Deploy StorageClass for Block (ReadWriteOnce) volumes
+Run the following command to create a new yaml file for the block-based StorageClass configuration:
 
 .. code-block:: shell
 
-  cat <<EOF > /tmp/px-repl3-sc.yaml
+  cat << EOF >> block-sc.yaml
   kind: StorageClass
   apiVersion: storage.k8s.io/v1
   metadata:
-    name: px-repl3-sc
+    name: block-sc
   provisioner: pxd.portworx.com
   parameters:
     repl: "3"
     priority_io: "high"
-  reclaimPolicy: Delete
-  volumeBindingMode: Immediate
+    io_profile: "auto"
+  allowVolumeExpansion: true
   EOF
 
+PVCs provisioned using the above StorageClass will have a replication factor of 3, which means there will be three replicas of the PVC spread across the Kubernetes worker nodes.
+
+Now, let's use the following command to apply this yaml file and deploy the StorageClass on our Kubernetes cluster:
 .. code-block:: shell
 
-  oc create -f /tmp/px-repl3-sc.yaml
+  oc create -f /tmp/block-sc.yaml
 
 Let's proceed to creating volumes that use this storage class.
 
