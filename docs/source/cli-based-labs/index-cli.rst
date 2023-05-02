@@ -12,7 +12,7 @@ Red Hat Demo Platform Command Line Labs
    :numbered:
    :glob:
 
-   explore-rhpds-cli
+   explore-rhdp-cli
    review-k8s-storage-cli
    apache-cassandra-cli
    shared-volumes-cli
