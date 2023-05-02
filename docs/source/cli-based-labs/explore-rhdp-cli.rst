@@ -1,10 +1,10 @@
 ====================================================
-Lab 01 - Explore Red Hat Product Demo System cluster
+Lab 01 - Explore Red Hat Demo Platform cluster
 ====================================================
 
-We will begin with a quick tour of the lab environment. This lab consists of a multi-node kubernetes cluster which has been deployed exclusively for you. This is a sandbox environment. Feel free to play around.
+We will begin with a quick tour of the lab environment. This lab consists of a multi-node Red Hat OpenShift cluster which has been deployed exclusively for you. This is a sandbox environment. Feel free to play around.
 
-Red Hat Openshift Container Platform configuration review
+Red Hat OpenShift Container Platform configuration review
 ---------------------------------------------------------
 
 Q1: How many master nodes do you see in the cluster?
@@ -29,7 +29,7 @@ Hint:
 
 .. code-block:: shell
     
-    oc version
+    oc version | grep "Kubernetes Version"
 
 .. dropdown:: Show Solution
     
