@@ -10,7 +10,7 @@ Deploying Portworx Storage Classes
 Portworx provides the ability for users to leverage a unified storage pool to dynamically provision both Block-based (ReadWriteOnce) and File-based (ReadWriteMany) volumes for applications running on your Kubernetes cluster without having to provision multiple CSI drivers/plugins, and without the need for specific backing storage devices!
 
 Task 1: Deploy StorageClass for Block (ReadWriteOnce) volumes
--------
+~~~~~~~~~~
 Run the following command to create a new yaml file for the block-based StorageClass configuration:
 
 .. code-block:: shell
@@ -36,7 +36,7 @@ Now, let's use the following command to apply this yaml file and deploy the Stor
   oc create -f /tmp/block-sc.yaml
 
 Task 2: Deploy StorageClass for File (ReadWriteMany) volumes
--------
+~~~~~~~~~~
 
 Run the following command to create a new yaml file for the file-based StorageClass configuration:
 
@@ -68,13 +68,13 @@ Deploying demo application for ReadWriteOnce volumes
 In this step, we will deploy a demo application that provisions a PostgreSQL database that uses a ReadWriteOnce volume to store data.
 
 Task 1: Deploy StorageClass for Block (ReadWriteOnce) volumes
--------
+~~~~~~~~~~
 
 .. code-block:: shell
   oc create ns demo
 
 Task 2: Deploy the PostgreSQL database resources in the "demo" namespace
--------
+~~~~~~~~~~
 
 .. code-block:: shell 
   cat << EOF >> /tmp/postgres-db.yaml
@@ -152,7 +152,7 @@ Task 2: Deploy the PostgreSQL database resources in the "demo" namespace
   oc create -f /tmp/postgres-db.yaml -n demo
 
 Task 3: Deploy the front-end components for the application in the `demo` namespace
--------
+~~~~~~~~~~
 
 .. code-block:: shell
   cat << EOF >> /tmp/k8s-webapp.yaml
@@ -208,7 +208,7 @@ Task 3: Deploy the front-end components for the application in the `demo` namesp
   oc apply -f /tmp/k8s-webapp.yaml -n demo
 
 Task 4: Monitor the application deployment using the following command:
--------
+~~~~~~~~~~
 
 .. code-block:: shell
 
@@ -217,7 +217,7 @@ Task 4: Monitor the application deployment using the following command:
 When all of the pods are running, press `CTRL+C` to exit.
 
 Task 5: Create some data using the app:
--------
+~~~~~~~~~~
 
 Use the following commnad to fetch the LoadBalancer endpoint for the k8s-counter-web service in the demo namespace and navigate to it using a new browser tab. 
 .. code-block:: shell
@@ -226,7 +226,7 @@ Use the following commnad to fetch the LoadBalancer endpoint for the k8s-counter
 Click anywhere on the blank screen to generate Kubernetes logos. The (X,Y) pixel coordinates for these logos are stored in the backend Postgres database.
 
 Task 6: Inspect the Postgres volume
--------
+~~~~~~~~~~
 
 Use the following command to inspect the Postgres volume and look at the Portworx parameters configured for the volume:
 
@@ -238,7 +238,7 @@ Use the following command to inspect the Postgres volume and look at the Portwor
 Observe how Portworx creates volume replicas, and spreads them across your Kubernetes worker nodes.
 
 Task 7: List entries from the PostgreSQL database
--------
+~~~~~~~~~~
 
 To look at the Postgres entries generated because of your interaction with the demo application, first get a bash shell on the Postgres pod:
 .. code-block:: shell
@@ -262,12 +262,12 @@ Deploying demo application for ReadWriteMany volumes
 Portworx offers a `sharedv4 service` volume which allows applications to connect to the shared persistent volume either using a ClusterIP or a LoadBalancer endpoint. This is advantageous as even if one of the worker node goes down, the shared volume is still accessible without any interruption of the application utilizing the data on the shared volume.
 
 Task 1: Create the `sharedservice` namespace:
--------
+~~~~~~~~~~
 .. code-block:: shell
   oc create ns sharedservice
 
 Task 2: Deploy the sharedv4 service PVC
--------
+~~~~~~~~~~
 Review the yaml for the RWX PVC:
 
 .. code-block:: shell
@@ -294,7 +294,7 @@ Then apply the yaml to create the PVC:
   oc apply -f /tmp/sharedpvc.yaml -n sharedservice
 
 Task 3: Deploy the busybox pods
--------
+~~~~~~~~~~
 
 Create a new yaml file to deploy the busybox pod yaml we'll be using:
 
@@ -374,7 +374,7 @@ Then apply the yaml to create the deployment and reader pod:
 This creates a deployment using multiple simple busybox pods that have mounted and will constantly write to the shared persistent volume. It also deploys a single busybox pod that will constantly read from the shared persistent volume.
 
 Task 4: Inspect the volume
--------
+~~~~~~~~~~
 
 Let's take a look at what information Portworx gives us about our shared volume:
 
@@ -387,7 +387,7 @@ Let's take a look at what information Portworx gives us about our shared volume:
 Note that we have four pods accessing the RWX volume for our demo!
 
 Task 5: Simulate Node failure
--------
+~~~~~~~~~~
 
 Inspect the sharedv4service Endpoint:
 
@@ -409,7 +409,7 @@ Now let's reboot the node that is currently set as the endpoint for the sharedv4
   ssh $NODE sudo reboot
 
 Task 6: Inspect the log file to ensure that there was no application interruption due to node failure
--------
+~~~~~~~~~~
 
 Let's tail the logs of the reader pod which is reading the log file being written to by the other three pods:
 
@@ -419,7 +419,7 @@ Let's tail the logs of the reader pod which is reading the log file being writte
 Press `CTRL-C` to exit the oc logs command.
 
 Task 7: Inspect the sharedv4 service again:
--------
+~~~~~~~~~~
 
 Use the following commmand to verify that the sharedv4 service endpoint changed to different node in the Kubernetes cluster.
 
