@@ -1,18 +1,15 @@
 =======================================
-Lab 02 - StorageClasses, RWO, and RWX Volumes
+StorageClasses, RWO, and RWX Volumes
 =======================================
-
 In this scenario, you'll learn about Portworx Enterprise StorageClass parameters and deploy demo applications that use RWO (ReadWriteOnce) and RWX (ReadWriteMany) Persistent Volumes provisioned by Portworx Enterprise.
 
 Deploying Portworx Storage Classes
 -----------------------
-
 Portworx provides the ability for users to leverage a unified storage pool to dynamically provision both Block-based (ReadWriteOnce) and File-based (ReadWriteMany) volumes for applications running on your Kubernetes cluster without having to provision multiple CSI drivers/plugins, and without the need for specific backing storage devices!
 
 Deploy StorageClass for Block (ReadWriteOnce) volumes
 ~~~~~~~~~~
 Run the following command to create a new yaml file for the block-based StorageClass configuration:
-
 
 .. code-block:: shell
 
@@ -30,9 +27,7 @@ Run the following command to create a new yaml file for the block-based StorageC
   EOF
 
 PVCs provisioned using the above StorageClass will have a replication factor of 3, which means there will be three replicas of the PVC spread across the Kubernetes worker nodes.
-
 Now, let's use the following command to apply this yaml file and deploy the StorageClass on our Kubernetes cluster:
-
 
 .. code-block:: shell
 
@@ -40,9 +35,7 @@ Now, let's use the following command to apply this yaml file and deploy the Stor
 
 Deploy StorageClass for File (ReadWriteMany) volumes
 ~~~~~~~~~~
-
 Run the following command to create a new yaml file for the file-based StorageClass configuration:
-
 
 .. code-block:: shell
 
@@ -64,7 +57,6 @@ PVCs provisioned using the above StorageClass can be accessed by multiple pods a
 
 Now, let's use the following command to apply this yaml file and deploy the StorageClass on our Kubernetes cluster:
 
-
 .. code-block:: shell
 
   oc create -f /tmp/file-sc.yaml
@@ -76,14 +68,12 @@ In this step, we will deploy a demo application that provisions a PostgreSQL dat
 Deploy StorageClass for Block (ReadWriteOnce) volumes
 ~~~~~~~~~~
 
-
 .. code-block:: shell
 
   oc create ns demo
 
 Deploy the PostgreSQL database resources in the "demo" namespace
 ~~~~~~~~~~
-
 
 .. code-block:: shell 
 
@@ -159,14 +149,12 @@ Deploy the PostgreSQL database resources in the "demo" namespace
   EOF
 
 
-
 .. code-block:: shell
 
   oc create -f /tmp/postgres-db.yaml -n demo
 
 Deploy the front-end components for the application in the `demo` namespace
 ~~~~~~~~~~
-
 
 .. code-block:: shell
 
@@ -227,7 +215,6 @@ Deploy the front-end components for the application in the `demo` namespace
 Monitor the application deployment using the following command:
 ~~~~~~~~~~
 
-
 .. code-block:: shell
 
   watch oc get all -n demo
@@ -236,9 +223,7 @@ When all of the pods are running, press `CTRL+C` to exit.
 
 Create some data using the app:
 ~~~~~~~~~~
-
 Use the following commnad to fetch the LoadBalancer endpoint for the k8s-counter-web service in the demo namespace and navigate to it using a new browser tab. 
-
 
 .. code-block:: shell
 
@@ -248,9 +233,7 @@ Click anywhere on the blank screen to generate Kubernetes logos. The (X,Y) pixel
 
 Inspect the Postgres volume
 ~~~~~~~~~~
-
 Use the following command to inspect the Postgres volume and look at the Portworx parameters configured for the volume:
-
 
 .. code-block:: shell
 
@@ -262,9 +245,7 @@ Observe how Portworx creates volume replicas, and spreads them across your Kuber
 
 List entries from the PostgreSQL database
 ~~~~~~~~~~
-
 To look at the Postgres entries generated because of your interaction with the demo application, first get a bash shell on the Postgres pod:
-
 
 .. code-block:: shell
 
@@ -272,7 +253,6 @@ To look at the Postgres entries generated because of your interaction with the d
   oc exec -it $POD -n demo -- bash
 
 Then, let's use psql to take a look at the contents of our database, where you should see the x/y coordinates of the logos you generated:
-
 
 .. code-block:: shell
 
@@ -286,12 +266,10 @@ In this step, you saw how Portworx can dynamically provisions a highly available
 
 Deploying demo application for ReadWriteMany volumes
 -----------------------
-
 Portworx offers a `sharedv4 service` volume which allows applications to connect to the shared persistent volume either using a ClusterIP or a LoadBalancer endpoint. This is advantageous as even if one of the worker node goes down, the shared volume is still accessible without any interruption of the application utilizing the data on the shared volume.
 
 Create the `sharedservice` namespace:
 ~~~~~~~~~~
-
 
 .. code-block:: shell
 
@@ -300,7 +278,6 @@ Create the `sharedservice` namespace:
 Deploy the sharedv4 service PVC
 ~~~~~~~~~~
 Review the yaml for the RWX PVC:
-
 
 .. code-block:: shell
 
@@ -321,16 +298,13 @@ Review the yaml for the RWX PVC:
 
 Then apply the yaml to create the PVC:
 
-
 .. code-block:: shell
 
   oc apply -f /tmp/sharedpvc.yaml -n sharedservice
 
 Deploy the busybox pods
 ~~~~~~~~~~
-
 Create a new yaml file to deploy the busybox pod yaml we'll be using:
-
 
 .. code-block:: shell 
 
@@ -402,7 +376,6 @@ Create a new yaml file to deploy the busybox pod yaml we'll be using:
   
 Then apply the yaml to create the deployment and reader pod:
 
-
 .. code-block:: shell 
 
   oc apply -f /tmp/busyboxpod.yaml -n sharedservice
@@ -411,9 +384,7 @@ This creates a deployment using multiple simple busybox pods that have mounted a
 
 Inspect the volume
 ~~~~~~~~~~
-
 Let's take a look at what information Portworx gives us about our shared volume:
-
 
 .. code-block:: shell
 
@@ -425,16 +396,13 @@ Note that we have four pods accessing the RWX volume for our demo!
 
 Simulate Node failure
 ~~~~~~~~~~
-
 Inspect the sharedv4service Endpoint:
-
 
 .. code-block:: shell
 
   oc describe svc -n sharedservice
 
 Let's get the external IP of the node that is currently serving the traffic for the shared volume in the variable `NODE` - this is the "Endpoints" in the output of the command we ran above:
-
 
 .. code-block:: shell
 
@@ -445,16 +413,13 @@ Let's get the external IP of the node that is currently serving the traffic for 
 
 Now let's reboot the node that is currently set as the endpoint for the sharedv4 service:
 
-
 .. code-block:: shell 
 
   ssh $NODE sudo reboot
 
 Inspect the log file to ensure that there was no application interruption due to node failure
 ~~~~~~~~~~
-
 Let's tail the logs of the reader pod which is reading the log file being written to by the other three pods:
-
 
 .. code-block:: shell
 
@@ -464,9 +429,7 @@ Press `CTRL-C` to exit the oc logs command.
 
 Inspect the sharedv4 service again:
 ~~~~~~~~~~
-
 Use the following commmand to verify that the sharedv4 service endpoint changed to different node in the Kubernetes cluster.
-
 
 .. code-block:: shell 
 
@@ -480,7 +443,6 @@ You've just deployed applications with different needs on the same Kubernetes cl
 Wrap up this module
 -----------------------
 Use the following commands to delete objects used for this specific scenario:
-
 
 .. code-block:: shell 
 
