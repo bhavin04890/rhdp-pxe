@@ -15,7 +15,7 @@ Red Hat Demo Platform Command Line Labs
    explore-rhdp-cli
    review-k8s-storage-cli
    vol-snaps-group-snaps-cli
-   shared-volumes-cli
+   app-io-control-cli
    k8s-snapshots-cli
    cloud-snapshots-cli
    3d-snapshots-cli

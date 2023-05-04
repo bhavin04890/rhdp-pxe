@@ -6,9 +6,9 @@ Portworx allows you to take standard snapshots of your persistent volumes on a p
 
 In this scenario, you will:
 
-* Perform a single volume snapshot and restore
-* Configure pre and post snapshot rules to quiesce an application
-* Perform a group volume snapshot and restore, utilizing the pre and post rules
+1. Perform a single volume snapshot and restore
+2. Configure pre and post snapshot rules to quiesce an application
+3. Perform a group volume snapshot and restore, utilizing the pre and post rules
 
 Working with single volume snapshots
 -------------------------
