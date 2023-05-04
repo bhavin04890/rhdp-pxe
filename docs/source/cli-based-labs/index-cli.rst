@@ -14,7 +14,7 @@ Red Hat Demo Platform Command Line Labs
 
    explore-rhdp-cli
    review-k8s-storage-cli
-   apache-cassandra-cli
+   vol-snaps-group-snaps-cli
    shared-volumes-cli
    k8s-snapshots-cli
    cloud-snapshots-cli
