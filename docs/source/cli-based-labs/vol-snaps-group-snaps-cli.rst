@@ -5,6 +5,7 @@ Volume Snapshots and Group VolumeSnapshots
 Portworx allows you to take standard snapshots of your persistent volumes on a per-volume basis, but also gives you the capability to take group snapshots if you have persistence across multiple volumes to enable application-consistent snapshots.
 
 In this scenario, you will:
+
 * Perform a single volume snapshot and restore
 * Configure pre and post snapshot rules to quiesce an application
 * Perform a group volume snapshot and restore, utilizing the pre and post rules

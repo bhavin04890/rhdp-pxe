@@ -1,5 +1,5 @@
 ====================================================
-Lab 01 - Explore Red Hat Demo Platform cluster
+Explore Red Hat Demo Platform cluster
 ====================================================
 
 We will begin with a quick tour of the lab environment. This lab consists of a multi-node Red Hat OpenShift cluster which has been deployed exclusively for you. This is a sandbox environment. Feel free to play around.
