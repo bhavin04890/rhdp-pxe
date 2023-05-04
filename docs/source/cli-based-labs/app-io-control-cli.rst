@@ -237,7 +237,6 @@ Note: Grafana takes a couple of minute to reflect the changes, so if you dont se
 
 That's how you can use Portworx Application IO control to ensure a single application doesn't consume all the resources available to the cluster and cause a noisy neighbor issue!
 
-
 Wrap up this module
 -------------------------
 Use the following commands to delete objects used for this specific scenario:
