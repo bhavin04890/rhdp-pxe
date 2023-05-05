@@ -10,14 +10,14 @@ Welcome to Portworx Enterprise documentation for the Red Hat Demo Platform!
 
 .. toctree::
    :caption: Command Line Labs
-   :maxdepth: 2
+   :maxdepth: 3
    :glob:
 
    source/cli-based-labs/index-cli
 
 .. toctree::
    :caption: GUI Labs
-   :maxdepth: 2
+   :maxdepth: 3
    :glob:
 
    source/gui-based-labs/index-gui

@@ -17,7 +17,7 @@ Red Hat Demo Platform Command Line Labs
    vol-snaps-group-snaps-cli
    app-io-control-cli
    autopilot-cli
-   k8s-snapshots-cli
+   trashcan-cli
    cloud-snapshots-cli
    3d-snapshots-cli
    snapshot-schedules-cli
