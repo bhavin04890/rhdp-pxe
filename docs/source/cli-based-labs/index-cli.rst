@@ -18,8 +18,3 @@ Red Hat Demo Platform Command Line Labs
    app-io-control-cli
    autopilot-cli
    trashcan-cli
-   cloud-snapshots-cli
-   3d-snapshots-cli
-   snapshot-schedules-cli
-   pvc-manual-resize-cli
-
