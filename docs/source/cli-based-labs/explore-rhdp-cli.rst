@@ -15,13 +15,7 @@ Hint:
     
     oc get nodes
 
-.. dropdown:: Show Solution
-
-    Answer: 3
-
-.. dropdown:: Show Solution 
-
-    Answer: 3
+Solution: 3
     
 Q2: What is the version of Kubernetes installed in this environment?
 
@@ -35,9 +29,7 @@ Hint:
     
     oc version | grep "Kubernetes Version"
 
-.. dropdown:: Show Solution
-    
-    Answer: 1.24
+Solution: 1.22
 
 Q3: What is the status of the `kube-apiserver`?
 
@@ -52,9 +44,7 @@ Hint:
     
     oc cluster-info
 
-.. dropdown:: Show Solution
-    
-    Answer: Running 
+Solution: Running
 
 Q4: Are there any pods running on the default name space?
 
@@ -67,9 +57,7 @@ Hint:
     
     oc get pods
 
-.. dropdown:: Show Solution
-    
-    Answer: No
+Solution: No 
 
 Q5: What is the name of the dns daemonset in the cluster?
 
@@ -83,9 +71,7 @@ Hint:
     
     oc get daemonset -n openshift-dns
 
-.. dropdown:: Show Solution
-    
-    Answer: dns-default
+Solution: dns-default
 
 Q6: How many replicas are configured for this deployment?
 
@@ -100,9 +86,7 @@ Hint:
     
     oc -n openshift-dns get daemonset -l dns.operator.openshift.io/owning-dns=default
 
-.. dropdown:: Show Solution
-    
-    Answer: 6
+Solution: 6
 
 Portworx configuration review
 -----------------------------
@@ -143,6 +127,4 @@ Hint:
 
     oc -n portworx exec $PX_POD -c portworx -it -- /opt/pwx/bin/pxctl status
 
-.. dropdown:: Show Solution
-    
-    Answer: 3
+Solution: 3
