@@ -16,9 +16,13 @@ Hint:
     oc get nodes
 
 .. dropdown:: Show Solution
-    
+
     Answer: 3
 
+.. dropdown:: Show Solution 
+
+    Answer: 3
+    
 Q2: What is the version of Kubernetes installed in this environment?
 
 1. 1.20
