@@ -111,6 +111,7 @@ Check the installation logs:
     PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}') 
     oc -n portworx logs -f $PX_POD -c portworx
 
+Use "CTRL-C" to exit out of the log command
 
 Lets explore the cluster using pxctl utility.
 

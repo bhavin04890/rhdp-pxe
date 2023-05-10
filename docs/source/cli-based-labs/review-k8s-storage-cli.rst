@@ -61,206 +61,218 @@ Now, let's use the following command to apply this yaml file and deploy the Stor
 
   oc create -f /tmp/file-sc.yaml
 
+Use the following command to look at all the storage classes deployed on your cluster. 
+
+.. code-block:: shell
+
+  oc get sc 
+
+
 Deploying demo application for ReadWriteOnce volumes
 -----------------------
-In this step, we will deploy a demo application that provisions a PostgreSQL database that uses a ReadWriteOnce volume to store data.
+
+In this step, we will deploy a demo application that provisions a MongoDB database that uses a ReadWriteOnce volume to store data.
 
 Deploy StorageClass for Block (ReadWriteOnce) volumes
 ~~~~~~~~~~
 
 .. code-block:: shell
 
-  oc create ns demo
+  oc create ns pxbbq
 
 Deploy the PostgreSQL database resources in the "demo" namespace
 ~~~~~~~~~~
 
 .. code-block:: shell 
 
-  cat << EOF >> /tmp/postgres-db.yaml
-  ---   
-  ##### Portworx persistent volume claim
-  kind: PersistentVolumeClaim
-  apiVersion: v1
-  metadata:
-    name: postgres-data
-    labels:
-      app: postgres
-  spec:
-    storageClassName: block-sc
-    accessModes:
-      - ReadWriteOnce
-    resources:
-      requests:
-        storage: 5Gi
+  cat << EOF >> /tmp/pxbbq-mongo.yaml
   ---
-  apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: example-config
-  data:
-    EXAMPLE_DB_HOST: postgres://postgres@postgres/example?sslmode=disable
-    EXAMPLE_DB_KIND: postgres
-    PGDATA: /var/lib/postgresql/data/pgdata
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: admin123
+  apiVersion: "v1"
+  kind: "PersistentVolumeClaim"
+  metadata: 
+    name: "mongodb-pvc"
+    namespace: "pxbbq"
+    labels: 
+      app: "mongo-db"
+  spec: 
+    accessModes: 
+      - ReadWriteOnce
+    resources: 
+      requests: 
+        storage: 5Gi
+    storageClassName: block-sc
   ---
   apiVersion: apps/v1
   kind: Deployment
   metadata:
-    name: postgres
+    name: mongo
+    labels:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend
+    namespace: pxbbq
   spec:
     selector:
       matchLabels:
-        app: postgres
+        app.kubernetes.io/name: mongo
+        app.kubernetes.io/component: backend
+    replicas: 1
     template:
       metadata:
         labels:
-          app: postgres
+          app.kubernetes.io/name: mongo
+          app.kubernetes.io/component: backend
       spec:
         containers:
-        - image: "postgres:10.1"
-          name: postgres
-          envFrom:
-          - configMapRef:
-              name: example-config
+        - name: mongo
+          image: mongo
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: porxie
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: "porxie"
+          args:
+            - --bind_ip
+            - 0.0.0.0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
           ports:
-          - containerPort: 5432
-            name: postgres
+          - containerPort: 27017
           volumeMounts:
-          - name: postgres-data
-            mountPath: /var/lib/postgresql/data
+          - name: mongo-data-dir
+            mountPath: /data/db
         volumes:
-        - name: postgres-data
+        - name: mongo-data-dir
           persistentVolumeClaim:
-            claimName: postgres-data
+            claimName: mongodb-pvc
   ---
   apiVersion: v1
   kind: Service
   metadata:
-    name: pg-service
+    name: mongo
+    labels:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend
+    namespace: pxbbq
   spec:
-    selector:
-      app: postgres
     ports:
-    - protocol: TCP
-      port: 5432
-      targetPort: 5432
-  EOF
-
+    - port: 27017
+      targetPort: 27017
+    type: ClusterIP
+    selector:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend
 
 .. code-block:: shell
 
-  oc create -f /tmp/postgres-db.yaml -n demo
+  oc create -f /tmp/pxbbq-mongo.yaml
 
 Deploy the front-end components for the application in the `demo` namespace
 ~~~~~~~~~~
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/k8s-webapp.yaml
-  # DEMO APP
+  cat << EOF >> /tmp/pxbbq-frontend.yaml
+  ---
   apiVersion: apps/v1
-  kind: Deployment
+  kind: Deployment                 
   metadata:
-    name: k8s-counter-deployment
-    labels:
-      app: k8s-counter
+    name: pxbbq-web  
+    namespace: pxbbq         
   spec:
-    replicas: 1
+    replicas: 3                    
     selector:
       matchLabels:
-        app: k8s-counter
-    template:
+        app: pxbbq-web
+    template:                      
       metadata:
-        labels:
-          app: k8s-counter
-      spec:
+        labels:                    
+          app: pxbbq-web
+      spec:                        
         containers:
-        - name: k8s-counter
-          image: wallnerryan/moby-counter:k8s-record-count
+        - name: pxbbq-web
+          image: eshanks16/pxbbq:v3.2
+          env:
+          - name: MONGO_INIT_USER
+            value: "porxie" #Mongo User with permissions to create additional databases and users. Typically "porxie" or "pds"
+          - name: MONGO_INIT_PASS
+            value: "porxie" #Required to connect the init user to the database. If using the mongodb yaml supplied, use "porxie"
+          - name: MONGO_NODES
+            value: "mongo" #COMMA SEPARATED LIST OF MONGO ENDPOINTS. Example: mongo1.dns.name,mongo2.dns.name
+          - name: MONGO_PORT
+            value: "27017"
+          - name: MONGO_USER
+            value: porxie #Mongo DB User that will be created by using the Init_User
+          - name: MONGO_PASS
+            value: "porxie" #Mongo DB Password for User that will be created by using the Init User
           imagePullPolicy: Always
           ports:
-          - containerPort: 80
-          env:
-          - name: USE_POSTGRES_HOST
-            value: "pg-service"
-          - name: USE_POSTGRES_PORT
-            value: "5432"
-          - name: POSTGRES_USER
-            value: "postgres"
-          - name: POSTGRES_PASSWORD
-            value: "admin123"
+            - containerPort: 8080    
   ---
   apiVersion: v1
   kind: Service
   metadata:
-    name: k8s-counter-service
+    name: pxbbq-svc
+    namespace: pxbbq
+    labels:
+      app: pxbbq-web
   spec:
+    ports:
+    - port: 80
+      targetPort: 8080
     type: LoadBalancer
     selector:
-      app: k8s-counter
-    ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
-      name: k8s-counter-web
-  EOF
+      app: pxbbq-web
 
 
 .. code-block:: shell
 
-  oc apply -f /tmp/k8s-webapp.yaml -n demo
+  oc apply -f /tmp/pxbbq-frontend.yaml
 
 Monitor the application deployment using the following command:
 ~~~~~~~~~~
 
 .. code-block:: shell
 
-  watch oc get all -n demo
+  watch oc get all -n pxbbq
 
 When all of the pods are running, press `CTRL+C` to exit.
 
 Create some data using the app:
 ~~~~~~~~~~
-Use the following commnad to fetch the LoadBalancer endpoint for the k8s-counter-web service in the demo namespace and navigate to it using a new browser tab. 
+Use the following commnad to fetch the LoadBalancer endpoint for the pxbbq-svc service in the demo namespace and navigate to it using a new browser tab. 
 
 .. code-block:: shell
 
-  oc get svc -n demo k8s-counter-service
+  oc get svc -n pxbbq pxbbq-svc
 
-Click anywhere on the blank screen to generate Kubernetes logos. The (X,Y) pixel coordinates for these logos are stored in the backend Postgres database.
+It will take a couple of minutes for the LoadBalancer endpoint to be online. 
 
-Inspect the Postgres volume
+Interact with the Demo application
 ~~~~~~~~~~
-Use the following command to inspect the Postgres volume and look at the Portworx parameters configured for the volume:
+
+This demo application allows users to place orders that are saved in the backend MongoDB database. Use the following steps to register a new user and place a simple order. 
+
+1. Click on **Menu** on the Top Right and select **Register**.
+2. Enter your first name, last name, email address and password. Click Register. 
+3. Click on **Menu** on the Top Right and select **Order**. 
+4. Select a Main Dish, Couple of Side dishes and a drink. Click **Place Order**. 
+5. You can either click on the order confirmation, or navigate to **Order History** from the Top Right, to find your order. 
+
+Now that we have some data generated, let's proceed with the next section. 
+
+Inspect the MongoDB volume
+~~~~~~~~~~
+Use the following command to inspect the MongoDB volume and look at the Portworx parameters configured for the volume:
 
 .. code-block:: shell
 
-  VOL=`oc get pvc -n demo | grep postgres-data | awk '{print $3}'`
+  VOL=`oc get pvc -n pxbbq | grep mongodb-pvc | awk '{print $3}'`
   PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
   oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume inspect ${VOL}
 
 Observe how Portworx creates volume replicas, and spreads them across your Kubernetes worker nodes.
-
-List entries from the PostgreSQL database
-~~~~~~~~~~
-To look at the Postgres entries generated because of your interaction with the demo application, first get a bash shell on the Postgres pod:
-
-.. code-block:: shell
-
-  POD=$(oc get pods -l app=postgres -n demo | grep 1/1 | awk '{print $1}')
-  oc exec -it $POD -n demo -- bash
-
-Then, let's use psql to take a look at the contents of our database, where you should see the x/y coordinates of the logos you generated:
-
-.. code-block:: shell
-
-  psql -U $POSTGRES_USER
-  \c postgres
-  select * from mywhales;
-  \q
-  exit
 
 In this step, you saw how Portworx can dynamically provisions a highly available ReadWriteOnce persistent volume for your application.
 
@@ -372,7 +384,7 @@ Create a new yaml file to deploy the busybox pod yaml we'll be using:
           while true; do
             tail -f /mnt/shared.log
           done
-    EOF
+  EOF
   
 Then apply the yaml to create the deployment and reader pod:
 
@@ -388,34 +400,19 @@ Let's take a look at what information Portworx gives us about our shared volume:
 
 .. code-block:: shell
 
-  VolName=$(pxctl volume list | grep "10 GiB" | awk '{print $2}' )
+  VolName=`oc get pvc -n sharedservice | grep px-sharedv4-pvc | awk '{print $3}'`
   PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
   oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume inspect ${VolName}
 
 Note that we have four pods accessing the RWX volume for our demo!
 
-Simulate Node failure
-~~~~~~~~~~
 Inspect the sharedv4service Endpoint:
 
 .. code-block:: shell
 
   oc describe svc -n sharedservice
 
-Let's get the external IP of the node that is currently serving the traffic for the shared volume in the variable `NODE` - this is the "Endpoints" in the output of the command we ran above:
-
-.. code-block:: shell
-
-  NODEIP=$(oc describe svc -n sharedservice | grep Endpoints: | awk -F ":" '{print $2}')
-  EXTERNALIP=$(oc get nodes -o wide | grep $NODEIP | awk '{print $7}')
-  NODE=$(cat .ssh/config | grep -B 1 $EXTERNALIP | awk '{print $2}' | grep node)
-  echo "sharedv4service is serving traffic through node: $NODE"
-
-Now let's reboot the node that is currently set as the endpoint for the sharedv4 service:
-
-.. code-block:: shell 
-
-  ssh $NODE sudo reboot
+Applications can mount the RWX using the ClusterIP (IP) and Portworx will automatically redirect it to one of the worker nodes in your cluster. The Endpoint in the output is the current node, but in case of that node going down, Portworx will automatically route the traffic using a different node endpoint, without the user having to reboot/restart the application pods. 
 
 Inspect the log file to ensure that there was no application interruption due to node failure
 ~~~~~~~~~~
@@ -427,17 +424,6 @@ Let's tail the logs of the reader pod which is reading the log file being writte
 
 Press `CTRL-C` to exit the oc logs command.
 
-Inspect the sharedv4 service again:
-~~~~~~~~~~
-Use the following commmand to verify that the sharedv4 service endpoint changed to different node in the Kubernetes cluster.
-
-.. code-block:: shell 
-
-  NODEIP2=$(oc describe svc -n sharedservice | grep Endpoints: | awk -F ":" '{print $2}')
-  EXTERNALIP=$(oc get nodes -o wide | grep $NODEIP2 | awk '{print $7}')
-  NODE2=$(cat .ssh/config | grep -B 1 $EXTERNALIP | awk '{print $2}' | grep node)
-  echo "sharedv4service is serving traffic through node: $NODE2, previously served by $NODE."
-
 You've just deployed applications with different needs on the same Kubernetes cluster without the need to install multiple CSI drivers/plugins, and it will function exactly the same way no matter what backing storage you provide for Portworx Enterprise to use!
 
 Wrap up this module
@@ -446,7 +432,7 @@ Use the following commands to delete objects used for this specific scenario:
 
 .. code-block:: shell 
 
-  oc delete -f busyboxpod.yaml -n sharedservice
-  oc delete -f sharedpvc.yaml -n sharedservice
+  oc delete -f /tmp/busyboxpod.yaml -n sharedservice
+  oc delete -f /tmp/sharedpvc.yaml -n sharedservice
   oc delete ns sharedservice
   oc wait --for=delete ns/sharedservice --timeout=60s

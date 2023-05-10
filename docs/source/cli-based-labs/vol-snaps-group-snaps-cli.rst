@@ -17,7 +17,7 @@ To find the LoadBalancer endpoint for our demo application, use the following co
 
 .. code-block:: shell
 
-  oc get svc -n demo k8s-counter-service
+  oc get svc -n pxbbq pxbbq-svc
 
 Create volumesnapshot config
 ~~~~~~~~~~
@@ -25,54 +25,55 @@ Use the following yaml file to create a volume snapshot for your Postgres PVC.
 
 .. code-block:: shell 
 
-  cat << EOF >> /tmp/pg-snapshot.yaml
+  cat << EOF >> /tmp/mongo-snapshot.yaml
   apiVersion: volumesnapshot.external-storage.k8s.io/v1
   kind: VolumeSnapshot
   metadata:
-    name: px-postgres-snapshot
-    namespace: demo
+    name: px-mongo-snapshot
+    namespace: pxbbq
   spec:
-    persistentVolumeClaimName: postgres-data
+    persistentVolumeClaimName: mongodb-pvc
   EOF
 
 Apply the yaml file to create the snapshot. 
 
 .. code-block:: shell 
 
-  oc apply -f /tmp/pg-snapshot.yaml
+  oc apply -f /tmp/mongo-snapshot.yaml
 
 And let's look at the snapshot object:
 
 .. code-block:: shell
 
-  oc get stork-volumesnapshots,volumesnapshotdatas -n demo
+  oc get stork-volumesnapshots,volumesnapshotdatas -n pxbbq
 
-Accidently "Drop Table" in your Postgres database
+Accidently "Drop Table" in your MongoDB database
 ~~~~~~~~~~
-Let's delete the data within our Postgres DB by exec'ing into the pod:
+Let's delete the data within our MongoDB DB by exec'ing into the pod:
 
 .. code-block:: shell
 
+  POD=$(oc get pods -l app.kubernetes.io/name=mongo -n pxbbq | grep 1/1 | awk '{print $1}')
   POD=$(oc get pods -l app=postgres -n demo | grep 1/1 | awk '{print $1}')
-  oc exec -it $POD -n demo -- bash
+  oc exec -it $POD -n pxbbq -- mongosh --quiet  
 
 And then drop our table:
 
 .. code-block:: shell
-
-  psql -U $POSTGRES_USER
-  \c postgres
-  drop table mywhales cascade;
-  \q
-  exit
+  
+  use admin
+  db.auth('porxie','porxie')
+  show dbs 
+  use porxbbq
+  db.dropDatabase()
 
 Verify data has been deleted 
 ~~~~~~~~~~
-Navigate to the Demo App using the LoadBalancer endpoint from the below command. All the logos that you saw in the beginning of the module will be gone, as we dropped our backend table in the Postgres database. 
+Navigate to the Portworx BBQ App using the LoadBalancer endpoint from the below command. You should not be able to login using the user you created in the last module. If you were already logged in, you should not see your order from order history. 
 
 .. code-block:: shell
 
-  oc get svc -n demo k8s-counter-service
+  oc get svc -n pxbbq pxbbq-svc
 
 Restore our application from snapshot 
 ~~~~~~~~~~
@@ -85,9 +86,9 @@ Using the following yaml file, you can create a new PVC using the snapshot we cr
   apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
-    name: px-postgres-snap-clone
+    name: px-mongo-snap-clone
     annotations:
-      snapshot.alpha.kubernetes.io/snapshot: px-postgres-snapshot
+      snapshot.alpha.kubernetes.io/snapshot: px-mongo-snapshot
   spec:
     accessModes:
        - ReadWriteOnce
@@ -101,103 +102,97 @@ Create the PVC by applying the yaml
 
 .. code-block:: shell 
 
-  oc apply -f /tmp/pvc-from-snap.yaml -n demo 
+  oc apply -f /tmp/pvc-from-snap.yaml -n pxbbq 
 
 Then inspect the new PVC: 
 
 .. code-block:: shell
 
-  oc get pvc px-postgres-snap-clone -n demo
+  oc get pvc px-mongo-snap-clone -n pxbbq
 
 Redeploy the Demo Application
 ~~~~~~~~~~
 
-Use the following commands to redeploy the application, so that it uses the new PVC object. First, we'll delete the old Postgres instance:
+Use the following commands to redeploy the application, so that it uses the new PVC object. First, we'll delete the old MongoDB instance:
 
 .. code-block:: shell
 
-  oc delete -f /tmp/postgres-db.yaml
+  oc delete -f /tmp/pxbbq-mongo.yaml
 
-Next, we can redeploy Postgres using the new PVC that was restored from the snapshot:
+Next, we can redeploy MongoDB using the new PVC that was restored from the snapshot:
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/postgres-db-restore.yaml
-  apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: example-config
-  data:
-    EXAMPLE_DB_HOST: postgres://postgres@postgres/example?sslmode=disable
-    EXAMPLE_DB_KIND: postgres
-    PGDATA: /var/lib/postgresql/data/pgdata
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: admin123
+  cat << EOF >> /tmp/pxbbq-mongo-restore.yaml
   ---
   apiVersion: apps/v1
   kind: Deployment
   metadata:
-    name: postgres
+    name: mongo
+    labels:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend
+    namespace: pxbbq
   spec:
     selector:
       matchLabels:
-        app: postgres
+        app.kubernetes.io/name: mongo
+        app.kubernetes.io/component: backend
+    replicas: 1
     template:
       metadata:
         labels:
-          app: postgres
+          app.kubernetes.io/name: mongo
+          app.kubernetes.io/component: backend
       spec:
         containers:
-        - image: "postgres:10.1"
-          name: postgres
-          envFrom:
-          - configMapRef:
-              name: example-config
+        - name: mongo
+          image: mongo
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: porxie
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: "porxie"
+          args:
+            - --bind_ip
+            - 0.0.0.0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
           ports:
-          - containerPort: 5432
-            name: postgres
+          - containerPort: 27017
           volumeMounts:
-          - name: postgres-data
-            mountPath: /var/lib/postgresql/data
+          - name: mongo-data-dir
+            mountPath: /data/db
         volumes:
-        - name: postgres-data
+        - name: mongo-data-dir
           persistentVolumeClaim:
-            claimName: px-postgres-snap-clone
+            claimName: px-mongo-snap-clone
   ---
   apiVersion: v1
   kind: Service
   metadata:
-    name: pg-service
+    name: mongo
+    labels:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend
+    namespace: pxbbq
   spec:
-    selector:
-      app: postgres
     ports:
-    - protocol: TCP
-      port: 5432
-      targetPort: 5432
+    - port: 27017
+      targetPort: 27017
+    type: ClusterIP
+    selector:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend  
   EOF
 
 Apply the yaml file: 
 
 .. code-block:: shell
 
-  oc apply -f /tmp/postgres-db-restore.yaml
-
-Now let's restart the web front end of the demo application to force a reconnection to the Postgres DB:
-
-.. code-block:: shell
-
-  oc scale deployment.apps/k8s-counter-deployment --replicas=0 -n demo
-  sleep 5
-  oc scale deployment.apps/k8s-counter-deployment --replicas=1 -n demo
-
-And make sure that our application pod is up and running - keep watching until the old k8s-counter-deployment pod terminates and only the new one is running:
-
-.. code-block:: shell
-
-  watch oc get pods -n demo
-
-Use ctrl-c to exit out of the watch command. 
+  oc apply -f /tmp/pxbbq-mongo-restore.yaml
 
 Verify the application has been completely restored
 ~~~~~~~~~~
@@ -207,7 +202,7 @@ If you need to find your LoadBalancer endpoint, use the following command:
 
 .. code-block:: shell
   
-  oc get svc -n demo k8s-counter-service
+  oc get svc -n pxbbq pxbbq-svc
 
 In this step, we took a snapshot of the persistent volume, deleted the database table and then restored our application by restoring the persistent volume using the snapshot!
 
@@ -238,11 +233,12 @@ Then apply the yaml to create it:
 
   oc apply -f /tmp/group-sc.yaml
 
-Create a new namespace 
-~~~~~~~~~~
-
-.. code-block:: shell
-
+.. 
+  Create a new namespace 
+  ~~~~~~~~~~
+  #
+  .. code-block:: shell
+.. 
   oc create ns groupsnaps
 
 Create pre-snap rule for Cassandra
@@ -273,7 +269,7 @@ Then apply the yaml file to create the rule:
 
 .. code-block:: shell
   
-  oc apply -f /tmp/cassandra-presnap-rule.yaml -n groupsnaps
+  oc apply -f /tmp/cassandra-presnap-rule.yaml
 
 Deploy Cassandra 
 ~~~~~~~~~~
@@ -334,6 +330,7 @@ Deploy a Cassandra statefulset with 2 replicas to learn how Portworx GroupVolume
              cpu: "500m"
              memory: 1Gi
           securityContext:
+            privileged: true
             capabilities:
               add:
                 - IPC_LOCK
@@ -347,7 +344,7 @@ Deploy a Cassandra statefulset with 2 replicas to learn how Portworx GroupVolume
             - name: HEAP_NEWSIZE
               value: 100M
             - name: CASSANDRA_SEEDS
-              value: "cassandra-0.cassandra.groupsnaps.svc.cluster.local"
+              value: "cassandra-0.cassandra.default.svc.cluster.local"
             - name: CASSANDRA_CLUSTER_NAME
               value: "K8Demo"
             - name: CASSANDRA_DC
@@ -409,13 +406,13 @@ Apply the yaml file to create the Cassandra deployment
 
 .. code-block:: shell
 
-  oc apply -f /tmp/cassandra-app.yaml -n groupsnaps
+  oc apply -f /tmp/cassandra-app.yaml
 
 Watch until you see two Cassandra pods up and running with Ready 1/1 status:
 
 .. code-block:: shell
   
-  watch oc get pods,pvc -n groupsnaps
+  watch oc get pods,pvc 
 
 Note: use CTRL+C to exit out of the watch command once both the cassandra pods are running.
 
@@ -426,13 +423,13 @@ Let's take a look at the status of our Cassandra nodes:
 
 .. code-block:: shell
 
-  oc exec -it cassandra-0 -n groupsnaps -- nodetool status
+  oc exec -it cassandra-0 -- nodetool status
 
 And let's add some data to our Cassandra instance pods so we can take a snapshot later by exec'ing into the cqlsh pod:
 
 .. code-block:: shell
 
-  oc exec -it cqlsh -n groupsnaps -- cqlsh cassandra-0.cassandra.groupsnaps.svc.cluster.local --cqlversion=3.4.4
+  oc exec -it cqlsh -- cqlsh cassandra-0.cassandra.default.svc.cluster.local --cqlversion=3.4.4
 
 And then populate our data: 
 
@@ -474,14 +471,14 @@ Apply the spec to execute the snapshot action:
 
 .. code-block:: shell
 
-  oc apply -f /tmp/cassandra-groupsnapshot.yaml -n groupsnaps
+  oc apply -f /tmp/cassandra-groupsnapshot.yaml
 
 Note that once the snapshots have completed successfully, you should see Snapshot created successfully and it is ready for both Cassandra volumes in the oc describe output:
 
 .. code-block:: shell
 
-  oc get groupvolumesnapshot -n groupsnaps
-  oc describe groupvolumesnapshot cassandra-group-snapshot -n groupsnaps
+  oc get groupvolumesnapshot 
+  oc describe groupvolumesnapshot cassandra-group-snapshot
 
 Drop the Portworx keyspace
 ~~~~~~~~~~
@@ -489,7 +486,7 @@ Now that we have a snapshot, let's exec into the cqlsh pod again:
 
 .. code-block:: shell
 
-  oc exec -it cqlsh -n groupsnaps -- cqlsh cassandra-0.cassandra.groupsnaps.svc.cluster.local --cqlversion=3.4.4
+  oc exec -it cqlsh -- cqlsh cassandra-0.cassandra.default.svc.cluster.local --cqlversion=3.4.4
 
 And then drop the Portworx keyspace from Cassandra, to see if we can restore successfully:
 
@@ -504,14 +501,14 @@ We will start by deleting the Cassandra statefulset, Creating new PVCs using the
 
 .. code-block:: shell
   
-  oc delete sts cassandra -n groupsnaps
+  oc delete sts cassandra
 
 And let's get the snapshot names and assign them into variables
 
 .. code-block:: shell
 
-  SNAP0=$(oc get volumesnapshotdatas.volumesnapshot.external-storage.k8s.io -n groupsnaps -o jsonpath='{.items[0].metadata.name}')
-  SNAP1=$(oc get volumesnapshotdatas.volumesnapshot.external-storage.k8s.io -n groupsnaps -o jsonpath='{.items[1].metadata.name}')
+  SNAP0=$(oc get volumesnapshotdatas.volumesnapshot.external-storage.k8s.io -o jsonpath='{.items[0].metadata.name}')
+  SNAP1=$(oc get volumesnapshotdatas.volumesnapshot.external-storage.k8s.io -o jsonpath='{.items[1].metadata.name}')
 
 Now let's create a new yaml file for our PVC objects that will be deployed from our snapshots:
 
@@ -551,13 +548,13 @@ Now deploy the PVCs using the snapshots:
 
 .. code-block:: shell
 
-  oc apply -f /tmp/restoregrouppvc.yaml -n groupsnaps
+  oc apply -f /tmp/restoregrouppvc.yaml
 
 Inspect the PVCs deployed from the snapshots:
 
 .. code-block:: shell
 
-  oc get pvc -n groupsnaps
+  oc get pvc 
 
 Once you have these PVCs deployed, you can redeploy the Cassandra statefulset.
 
@@ -604,6 +601,7 @@ Once you have these PVCs deployed, you can redeploy the Cassandra statefulset.
              cpu: "500m"
              memory: 1Gi
           securityContext:
+            privileged: true
             capabilities:
               add:
                 - IPC_LOCK
@@ -617,7 +615,7 @@ Once you have these PVCs deployed, you can redeploy the Cassandra statefulset.
             - name: HEAP_NEWSIZE
               value: 100M
             - name: CASSANDRA_SEEDS
-              value: "cassandra-0.cassandra.groupsnaps.svc.cluster.local"
+              value: "cassandra-0.cassandra.default.svc.cluster.local"
             - name: CASSANDRA_CLUSTER_NAME
               value: "K8Demo"
             - name: CASSANDRA_DC
@@ -661,13 +659,13 @@ Apply the yaml file:
 
 .. code-block:: shell
    
-  oc apply -f /tmp/cassandra-restore-app.yaml -n groupsnaps
+  oc apply -f /tmp/cassandra-restore-app.yaml
 
 Inspect the Pods and PVCs deployed to restore our Cassandra instance:
 
 .. code-block:: shell
 
-  watch oc get pods,pvc -n groupsnaps
+  watch oc get pods,pvc
 
 Note: Use ctrl-c once all the pods are in running state. 
 
@@ -678,7 +676,7 @@ Let's verify that all of our data was restored:
 
 .. code-block:: shell
   
-  oc exec -it cqlsh -n groupsnaps -- cqlsh cassandra-0.cassandra.groupsnaps.svc.cluster.local --cqlversion=3.4.4
+  oc exec -it cqlsh -- cqlsh cassandra-0.cassandra.default.svc.cluster.local --cqlversion=3.4.4
 
 
 .. code-block:: shell
@@ -696,16 +694,14 @@ Use the following commands to delete objects used for this specific scenario:
 
 .. code-block:: shell
 
-  kubectl delete -f /tmp/cassandra-app.yaml -n groupsnaps
-  kubectl delete -f /tmp/restoregrouppvc.yaml -n groupsnaps
-  kubectl delete -f /tmp/cassandra-groupsnapshot.yaml -n groupsnaps
-  kubectl delete ns groupsnaps
-  kubectl wait --for=delete ns/groupsnaps --timeout=60s
-  kubectl delete -f /tmp/pg-snapshot.yaml
-  kubectl delete -f /tmp/k8s-webapp.yaml -n demo
-  kubectl delete -f /tmp/postgres-db.yaml -n demo
-  kubectl delete ns demo
-  kubectl wait --for=delete ns/demo --timeout=60s
+  kubectl delete -f /tmp/cassandra-app.yaml 
+  kubectl delete -f /tmp/restoregrouppvc.yaml
+  kubectl delete -f /tmp/cassandra-groupsnapshot.yaml
+  kubectl delete -f /tmp/mongo-snapshot.yaml
+  kubectl delete -f /tmp/pxbbq-mongo-restore.yaml -n pxbbq
+  kubectl delete -f /tmp/pxbbq-frontend.yaml -n pxbbq
+  kubectl delete ns pxbbq
+  kubectl wait --for=delete ns/pxbbq --timeout=60s
 
 To learn more about `Portworx <https://portworx.com/>`__, below are some useful references. 
 
