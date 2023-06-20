@@ -163,6 +163,7 @@ Deploy the PostgreSQL database resources in the "demo" namespace
     selector:
       app.kubernetes.io/name: mongo
       app.kubernetes.io/component: backend
+  EOF
 
 .. code-block:: shell
 
@@ -224,7 +225,7 @@ Deploy the front-end components for the application in the `demo` namespace
     type: LoadBalancer
     selector:
       app: pxbbq-web
-
+  EOF
 
 .. code-block:: shell
 

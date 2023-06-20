@@ -54,7 +54,6 @@ Let's delete the data within our MongoDB DB by exec'ing into the pod:
 .. code-block:: shell
 
   POD=$(oc get pods -l app.kubernetes.io/name=mongo -n pxbbq | grep 1/1 | awk '{print $1}')
-  POD=$(oc get pods -l app=postgres -n demo | grep 1/1 | awk '{print $1}')
   oc exec -it $POD -n pxbbq -- mongosh --quiet  
 
 And then drop our table:
@@ -66,6 +65,8 @@ And then drop our table:
   show dbs 
   use porxbbq
   db.dropDatabase()
+
+Use the `quit` command to exit out of the mongodb pod. 
 
 Verify data has been deleted 
 ~~~~~~~~~~

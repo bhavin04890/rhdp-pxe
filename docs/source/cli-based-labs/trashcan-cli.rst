@@ -49,221 +49,162 @@ Let's create a namespace to use:
 
   oc create ns trashcan
 
-Deploy the app
+  cat << EOF >> /tmp/pxbbq-mongo-tc.yaml
+  ---
+  apiVersion: "v1"
+  kind: "PersistentVolumeClaim"
+  metadata: 
+    name: "mongodb-pvc"
+    namespace: "trashcan"
+    labels: 
+      app: "mongo-db"
+  spec: 
+    accessModes: 
+      - ReadWriteOnce
+    resources: 
+      requests: 
+        storage: 5Gi
+    storageClassName: trash-sc
+  ---
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: mongo
+    labels:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend
+    namespace: trashcan
+  spec:
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: mongo
+        app.kubernetes.io/component: backend
+    replicas: 1
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/name: mongo
+          app.kubernetes.io/component: backend
+      spec:
+        containers:
+        - name: mongo
+          image: mongo
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: porxie
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: "porxie"
+          args:
+            - --bind_ip
+            - 0.0.0.0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          ports:
+          - containerPort: 27017
+          volumeMounts:
+          - name: mongo-data-dir
+            mountPath: /data/db
+        volumes:
+        - name: mongo-data-dir
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
+  ---
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: mongo
+    labels:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend
+    namespace: trashcan
+  spec:
+    ports:
+    - port: 27017
+      targetPort: 27017
+    type: ClusterIP
+    selector:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: backend
+  EOF
+
+.. code-block:: shell
+
+  oc create -f /tmp/pxbbq-mongo.yaml
+
+Deploy the front-end components for the application in the `demo` namespace
 ~~~~~~~~~~
 
-Let's deploy a simple demo application to use for the volume trash can demo:
-
 .. code-block:: shell
-  cat << EOF >> /tmp/postgres-db-tc.yaml
-  ---   
-  ##### Portworx persistent volume claim
-  kind: PersistentVolumeClaim
-  apiVersion: v1
-  metadata:
-    name: postgres-data
-    labels:
-      app: postgres
-  spec:
-    storageClassName: trash-sc
-    accessModes:
-    - ReadWriteOnce
-    resources:
-      requests:
-        storage: 25Gi
-  ---
-  apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: example-config
-  data:
-    EXAMPLE_DB_HOST: postgres://postgres@postgres/example?sslmode=disable
-    EXAMPLE_DB_KIND: postgres
-    PGDATA: /var/lib/postgresql/data/pgdata
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: admin123
+
+  cat << EOF >> /tmp/pxbbq-frontend-tc.yaml
   ---
   apiVersion: apps/v1
-  kind: Deployment
+  kind: Deployment                 
   metadata:
-    name: postgres
+    name: pxbbq-web  
+    namespace: trashcan
   spec:
+    replicas: 3                    
     selector:
       matchLabels:
-        app: postgres
-    template:
+        app: pxbbq-web
+    template:                      
       metadata:
-        labels:
-          app: postgres
-      spec:
+        labels:                    
+          app: pxbbq-web
+      spec:                        
         containers:
-        - image: "postgres:10.1"
-          name: postgres
-          envFrom:
-          - configMapRef:
-              name: example-config
-          ports:
-          - containerPort: 5432
-            name: postgres
-          volumeMounts:
-          - name: postgres-data
-            mountPath: /var/lib/postgresql/data
-        volumes:
-        - name: postgres-data
-          persistentVolumeClaim:
-            claimName: postgres-data
-  ---
-  apiVersion: v1
-  kind: Service
-  metadata:
-    name: pg-service
-  spec:
-    selector:
-      app: postgres
-    ports:
-    - protocol: TCP
-      port: 5432
-      targetPort: 5432
-  EOF
-
-.. code-block:: shell
-
-
-MySQL Deployment
-
-.. code-block:: shell
-
-  cat <<EOF > /tmp/create-mysql.yaml
-  kind: StorageClass
-  apiVersion: storage.k8s.io/v1
-  metadata:
-      name: px-db-sc
-  provisioner: pxd.portworx.com
-  parameters:
-     repl: "3"
-     io_profile: "db"
-     io_priority: "high"
-  ---
-  apiVersion: v1
-  kind: Namespace
-  metadata:
-    name: mysql-app
-  spec: {}
-  status: {}
-  ---
-  kind: PersistentVolumeClaim
-  apiVersion: v1
-  metadata:
-     name: px-mysql-pvc
-     labels:
-       app: mysql
-     namespace: mysql-app
-  spec:
-    storageClassName: px-db-sc
-     accessModes:
-       - ReadWriteOnce
-     resources:
-       requests:
-         storage: 1Gi
-  ---
-  apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: mysql
-    namespace: mysql-app
-  spec:
-    selector:
-      matchLabels:
-        app: mysql
-    replicas: 1
-    template:
-      metadata:
-        labels:
-          app: mysql
-      spec:
-        schedulerName: stork
-        containers:
-        - name: mysql
-          image: mysql:5.6
-          imagePullPolicy: "Always"
+        - name: pxbbq-web
+          image: eshanks16/pxbbq:v3.2
           env:
-          - name: MYSQL_ALLOW_EMPTY_PASSWORD
-            value: "1"
-          ports:
-          - containerPort: 3306
-          volumeMounts:
-          - mountPath: /var/lib/mysql
-            name: mysql-data
-        volumes:
-        - name: mysql-data
-          persistentVolumeClaim:
-            claimName: px-mysql-pvc
-  EOF
-
-.. code-block:: shell
-
-  cat << EOF >> /tmp/k8s-webapp-tc.yaml
-  apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: k8s-counter-deployment
-    labels:
-      app: k8s-counter
-  spec:
-    replicas: 1
-    selector:
-      matchLabels:
-        app: k8s-counter
-    template:
-      metadata:
-        labels:
-          app: k8s-counter
-      spec:
-        containers:
-        - name: k8s-counter
-          image: wallnerryan/moby-counter:k8s-record-count
+          - name: MONGO_INIT_USER
+            value: "porxie" #Mongo User with permissions to create additional databases and users. Typically "porxie" or "pds"
+          - name: MONGO_INIT_PASS
+            value: "porxie" #Required to connect the init user to the database. If using the mongodb yaml supplied, use "porxie"
+          - name: MONGO_NODES
+            value: "mongo" #COMMA SEPARATED LIST OF MONGO ENDPOINTS. Example: mongo1.dns.name,mongo2.dns.name
+          - name: MONGO_PORT
+            value: "27017"
+          - name: MONGO_USER
+            value: porxie #Mongo DB User that will be created by using the Init_User
+          - name: MONGO_PASS
+            value: "porxie" #Mongo DB Password for User that will be created by using the Init User
           imagePullPolicy: Always
           ports:
-          - containerPort: 80
-          env:
-          - name: USE_POSTGRES_HOST
-            value: "pg-service"
-          - name: USE_POSTGRES_PORT
-            value: "5432"
-          - name: POSTGRES_USER
-            value: "postgres"
-          - name: POSTGRES_PASSWORD
-            value: "admin123"
+            - containerPort: 8080    
   ---
   apiVersion: v1
   kind: Service
   metadata:
-    name: k8s-counter-service
+    name: pxbbq-svc
+    namespace: trashcan
+    labels:
+      app: pxbbq-web
   spec:
+    ports:
+    - port: 80
+      targetPort: 8080
     type: LoadBalancer
     selector:
-      app: k8s-counter
-    ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
-      nodePort: 30002
-      name: k8s-counter-web
+      app: pxbbq-web
   EOF
 
 .. code-block:: shell
 
-  oc apply -f /tmp/postgres-db-tc.yaml -n trashcan
-  oc apply -f /tmp/k8s-webapp-tc.yaml -n trashcan
+  oc create -f /tmp/pxbbq-mongo-tc.yaml
+  sleep 10
+  oc apply -f /tmp/pxbbq-frontend-tc.yaml
 
 Access the application
 ~~~~~~~~~~
 
-Access the demo application using the LoadBalancer endpoint from the command below, and click around to generate some data that will be stored in the backend Postgres database.
+Access the demo application using the LoadBalancer endpoint from the command below, and place some orders to store in the backend MongoDB database.
 
 .. code-block:: shell
    
-  oc get svc -n trashcan k8s-counter-service
+  oc get svc -n trashcan pxbbq-svc
 
 Delete the demo application
 ~~~~~~~~~~
@@ -272,11 +213,11 @@ Next, let's "accidentally" delete the postgres pod and persistent volume:
 
 .. code-block:: shell
 
-  oc delete -f /tmp/postgres-db-tc.yaml -n trashcan
+  oc delete -f /tmp/pxbbq-mongo-tc.yaml -n trashcan
 
 Wait for the delete to complete before continuing.
 
-Once the Postgres DB is deleted, navigate back to the Demo App tab to verify that it stopped working. Click on the refresh icon to the right of the tabs just to make sure - once the DB pod has been deleted, the logos should disappear.
+Once the MongoDB is deleted, navigate back to the Demo App tab to verify that it stopped working. Click on the refresh icon to the right of the tabs just to make sure - once the DB pod has been deleted, the app should be unreachable.
 
 Restoring volume from Volume Trashcan
 ~~~~~~~~~~
@@ -286,8 +227,8 @@ Let's use pxctl commands to restore our volume from the trashcan:
 .. code-block:: shell
   
   PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
-  VolName=$(oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume list --trashcan | grep "25 GiB" | awk '{print $8}')
-  oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume restore --trashcan $VolName pvc-restoredvol
+  VolMongo=$(oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume list --trashcan | grep "5 GiB" | awk '{print $8}')
+  oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume restore --trashcan $VolMongo pvc-restoredvol
   VolId=$(oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume list | grep "pvc-restoredvol" | awk '{print $1}' )
 
 Create a persistent volume from the recovered portworx volume
@@ -308,11 +249,11 @@ Now that we've restored the volume from the trashcan, let's create the yaml to t
     name: pvc-restoredvol
   spec:
     capacity:
-      storage: 25Gi
+      storage: 5Gi
     claimRef:
       apiVersion: v1
       kind: PersistentVolumeClaim
-      name: postgres-data
+      name: mongodb-pvc
       namespace: trashcan
     accessModes:
       - ReadWriteOnce
@@ -335,19 +276,19 @@ Let's redeploy the application which is using the recovered volume:
 
 .. code-block:: shell
 
-  oc apply -f /tmp/postgres-db-tc.yaml -n trashcan
+  oc apply -f /tmp/pxbbq-mongo-tc.yaml
 
 Delete the old web front end:
 
 .. code-block:: shell
 
-  oc delete deploy k8s-counter-deployment -n trashcan
+  oc delete deploy pxbbq-web -n trashcan
 
 And redeploy the web front end: 
 
 .. code-block:: shell
 
-  oc apply -f /tmp/k8s-webapp-tc.yaml -n trashcan
+  oc apply -f /tmp/pxbbq-frontend-tc.yaml
 
 Verify the restore by accessing the app
 ~~~~~~~~~~
@@ -356,7 +297,7 @@ Navigate to the Demo App UI by using the LoadBalancer endpoint from the command 
 
 .. code-block:: shell
 
-  oc get svc -n trashcan k8s-counter-service
+  oc get svc -n trashcan pxbbq-svc
 
 This is how Portworx allows users to use the Trash Can feature to recover accidentally deleted persistent volumes. This prevents additional downtime and reduces ticket churn for data restoration due to human error!
 
@@ -369,8 +310,7 @@ Use the following commands to delete objects used for this specific scenario:
 
   PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
   oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl cluster options update --volume-expiration-minutes 0
-  oc delete -f /tmp/k8s-webapp-tc.yaml -n trashcan
-  oc delete -f /tmp/postgres-db-tc.yaml -n trashcan
-  oc delete -f /tmp/recoverpv.yaml
+  oc delete -f /tmp/pxbbq-frontend-tc.yaml 
+  oc delete -f /tmp/pxbbq-mongo-tc.yaml
   oc delete ns trashcan
   oc wait --for=delete ns/trashcan --timeout=60s

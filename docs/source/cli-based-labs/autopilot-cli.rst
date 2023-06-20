@@ -32,11 +32,11 @@ Keep in mind, an AutoPilot Rule has 4 main parts.
     ##### selector filters the objects affected by this rule given labels
     selector:
       matchLabels:
-        app: postgres
+        app: fio
     ##### namespaceSelector selects the namespaces of the objects affected by this rule
     namespaceSelector:
       matchLabels:
-        type: db
+        type: fio
     ##### conditions are the symptoms to evaluate. All conditions are AND'ed
     conditions:
       # volume usage should be less than 30%
@@ -72,9 +72,9 @@ Since our Portworx Autopilot rule only targets namespaces that have the label ty
   apiVersion: v1
   kind: Namespace
   metadata:
-    name: pg1
+    name: fio
     labels:
-      type: db
+      type: fio
   EOF
 
 And apply the yaml to create the namespace:
@@ -83,146 +83,222 @@ And apply the yaml to create the namespace:
 
   oc apply -f /tmp/namespaces.yaml
 
-Deploy PVCs for Postgres
+Deploy ConfigMap for FIO
 ~~~~~~~~~~
 
-Create the yaml for the Postgres DB, and note the label ``app: postgres``:
+Create the yaml for the FIO configuration:
  
 .. code-block:: shell
 
-  cat << EOF >> /tmp/autopilot-postgres.yaml
-  kind: PersistentVolumeClaim
+  cat << EOF >> /tmp/fio-cm.yaml
   apiVersion: v1
+  kind: ConfigMap
   metadata:
-    name: pgbench-data
-    labels:
-      app: postgres
-  spec:
-    storageClassName: block-sc
-    accessModes:
-      - ReadWriteOnce
-    resources:
-      requests:
-        storage: 5Gi
+    name: fio-job-config
+  data:
+      fio.job: |
+          [global]
+          name=integrity-test
+          directory=/scratch/
+          rw=write
+          blocksize_range=4k-512k
+          direct=1
+          do_verify=1
+          verify=meta
+          verify_pattern=0xdeadbeef
+          end_fsync=1
+          time_based=1
+          filename=pxdtest
+          runtime=99999999
+          [file1]
+          filesize=70G
+          ioengine=libaio
+          iodepth=128
   ---
-  kind: PersistentVolumeClaim
   apiVersion: v1
+  kind: ConfigMap
   metadata:
-    name: pgbench-state
-  spec:
-    storageClassName: block-sc
-    accessModes:
-      - ReadWriteOnce
-    resources:
-      requests:
-        storage: 1Gi
+    name: grok-exporter
+  data:
+    config.yml: |-
+      global:
+        config_version: 3
+      input:
+        type: file
+        path: /logs/fio.log
+        readall: false
+        fail_on_missing_logfile: true
+      imports:
+      - type: grok_patterns
+        dir: ./patterns
+      grok_patterns:
+      - 'FIO_IOPS [0-9]*[.][0-9]k$|[0-9]*'
+      metrics:
+          - type: gauge
+            name: iops
+            help: FIO IOPS Write Gauge Metrics
+            match: '  write: %{GREEDYDATA}, iops=%{NUMBER:val1}%{GREEDYDATA:thsd}, %{GREEDYDATA}'
+            value: '{{`{{if eq .thsd "k"}}{{multiply .val1 1000}}{{else}}{{.val1}}{{end}}`}}'
+            labels:
+                iops_suffix: '{{`{{.thsd}}`}}'
+            cumulative: false
+            retention: 1s
+          - type: gauge
+            name: bandwidth
+            help: FIO Bandwidth Write Gauge Metrics
+            match: '  write: io=%{GREEDYDATA}, bw=%{NUMBER:val2}%{GREEDYDATA:kbs}, %{GREEDYDATA}, %{GREEDYDATA}'
+            value: '{{`{{if eq .kbs "KB/s"}}{{divide .val2 1024}}{{else}}{{.val2}}{{end}}`}}'
+            labels:
+                bw_unit: '{{`{{.kbs}}`}}'
+            cumulative: false
+            retention: 1s
+          - type: gauge
+            name: avg_latency
+            help: FIO AVG Latency Write Gauge Metrics
+            match: '     lat (%{GREEDYDATA:nsec}): min=%{GREEDYDATA}, max=%{GREEDYDATA}, avg=%{NUMBER:val3}, stdev=%{GREEDYDATA}'
+            value: '{{`{{if eq .nsec "(usec)"}}{{divide .val3 1000}}{{else}}{{.val3}}{{end}}`}}'
+            labels:
+                lat_unit: '{{`{{.nsec}}`}}'
+            cumulative: false
+            retention: 1s
+  ---
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: fio-ready-probe
+  data:
+    ready-probe.sh: |
+      #!/bin/bash
+      if [ `cat /root/fio.log | grep 'error\|bad magic header' | wc -l` -ge 1 ]; then
+        exit 1;
+      else
+        exit 0;
+      fi  
   EOF
 
 And then apply it:
 
 .. code-block:: shell
 
-  oc create -f /tmp/autopilot-postgres.yaml -n pg1
+  oc create -f /tmp/fio-cm.yaml -n fio
 
-Ensure that the PVCs are created and bound before deploying Postgres:
+Ensure that the configmap is deployed: 
 
 .. code-block:: shell
 
-  oc get pvc -n pg1
+  oc get pvc -n fio
 
-Deploy Postgres and pgbench pods
+Deploy FIO pods 
 ~~~~~~~~~~
 
-Create the yaml for Postgres and pgbench, which we'll use to grow the underlying data disk by generating random data:
+Create the yaml for fio, which we'll use to grow the underlying data disk by generating random data:
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/autopilot-app.yaml
+  cat << EOF >> /tmp/fio-app.yaml
   apiVersion: apps/v1
-  kind: Deployment
+  kind: StatefulSet
   metadata:
-    name: pgbench
-    labels:
-      app: pgbench
+    name: fio
   spec:
+    serviceName: fio
+    replicas: 1
     selector:
       matchLabels:
-        app: pgbench
-    strategy:
-      rollingUpdate:
-        maxSurge: 1
-        maxUnavailable: 1
-      type: RollingUpdate
-    replicas: 1
+        app: fio
     template:
       metadata:
         labels:
-          app: pgbench
+          app: fio
       spec:
         schedulerName: stork
         containers:
-          - image: postgres:9.5
-            name: postgres
-            ports:
-            - containerPort: 5432
-            env:
-            - name: POSTGRES_USER
-              value: pgbench
-            - name: POSTGRES_PASSWORD
-              value: superpostgres
-            - name: PGBENCH_PASSWORD
-              value: superpostgres
-            - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
-            volumeMounts:
-            - mountPath: /var/lib/postgresql/data
-              name: pgbenchdb
-          - name: pgbench
-            image: portworx/torpedo-pgbench:latest
-            imagePullPolicy: "Always"
-            env:
-              - name: PG_HOST
-                value: 127.0.0.1
-              - name: PG_USER
-                value: pgbench
-              - name: SIZE
-                value: "15"
-            volumeMounts:
-            - mountPath: /var/lib/postgresql/data
-              name: pgbenchdb
-            - mountPath: /pgbench
-              name: pgbenchstate
+        - name: fio
+          image: portworx/fio_drv
+          command: ["fio"]
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          args: ["/configs/fio.job", "--status-interval=1", "--eta=never", "--output=/logs/fio.log"]
+          volumeMounts:
+          - name: fio-config-vol
+            mountPath: /configs
+          - name: fio-data
+            mountPath: /scratch
+          - name: fio-log
+            mountPath: /logs
+        - name: grok
+          image: pwxvin/grok-exporter:v1.0.0-RC4
+          imagePullPolicy: IfNotPresent
+          ports:
+          - name: grok-port
+            containerPort: 9144
+            protocol: TCP
+          volumeMounts:
+          - name: grok-config-volume
+            mountPath: /etc/grok_exporter
+          - name: fio-log
+            mountPath: /logs
         volumes:
-        - name: pgbenchdb
-          persistentVolumeClaim:
-            claimName: pgbench-data
-        - name: pgbenchstate
-          persistentVolumeClaim:
-            claimName: pgbench-state
+        - name: fio-config-vol
+          configMap:
+            name: fio-job-config
+        - name: grok-config-volume
+          configMap:
+            name: grok-exporter
+    volumeClaimTemplates:
+    - metadata:
+        name: fio-data
+      spec:
+        storageClassName: block-sc
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+    - metadata:
+        name: fio-log
+      spec:
+        storageClassName: block-sc
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+  ---
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: grok-exporter-svc
+    labels:
+      app: fio
+  spec:
+    clusterIP: None
+    selector:
+      app: fio
+    ports:
+    - name: grok-port
+      port: 9144
+      targetPort: 9144
   EOF
 
 Now deploy the pods:
 
 .. code-block:: shell
 
-  oc create -f /tmp/autopilot-app.yaml -n pg1
-
-Verify write operations from pgbench
-~~~~~~~~~~
-
-Wait 10-20 seconds, then take a look at the logs from pgbench to ensure it is generating data:
+  oc create -f /tmp/fio-app.yaml -n fio
 
 .. code-block:: shell
-
-  POSTGRES_POD=$(oc get pods -n pg1 | grep 2/2 | awk '{print $1}')
-  oc logs $POSTGRES_POD -n pg1 pgbench
-
-Note: If you get an error that the pod does not exist, run the command above until you see the output from pgbench on your terminal screen.
+  
+  oc get pods,pvc -n fio
 
 Observe the Portworx Autopilot events
 ~~~~~~~~~~
-
-Run the following command to observe the state changes for Portworx Autopilot:
+Wait for a couple of minutes and run the following command to observe the state changes for Portworx Autopilot:
 
 .. code-block:: shell
 
@@ -246,7 +322,7 @@ Now let's take a look at our PVCs - note the automatic expansion of the volume o
 
 .. code-block:: shell
 
-  oc get pvc -n pg1
+  oc get pvc -n fio
 
 You've just configured Portworx Autopilot and observed how it can perform automated capacity management based on rules you configure, and be able to "right size" your underlying persistent storage as it is needed!
 
@@ -257,9 +333,9 @@ Use the following commands to delete objects used for this specific scenario:
 
 .. code-block:: shell
   
-  oc delete -f /tmp/autopilot-app.yaml -n pg1
-  oc delete -f /tmp/autopilot-postgres.yaml -n pg1
+  oc delete -f /tmp/fio-app.yaml -n fio
+  oc delete -f /tmp/fio-cm.yaml -n fio
   oc delete -f /tmp/autopilotrule.yaml
-  oc delete ns pg1
-  oc wait --for=delete ns/pg1 --timeout=60s
+  oc delete ns fio
+  oc wait --for=delete ns/fio --timeout=60s
 

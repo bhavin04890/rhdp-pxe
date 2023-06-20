@@ -189,9 +189,9 @@ Use the following command to access the LoadBalancer endpoint for the Grafana in
 
 .. code-block:: shell
 
-  oc get svc -n portworx grafana
+  oc get svc -n portworx grafana-svc
 
-Log in using admin/admin credentials. You will be prompted to set a new password for Grafana. You can set it to Password!. If you use anything else as a password, please remember it - or you may not be able to access Grafana in upcoming modules if desired!
+Navigate to the LoadBalancer endpoint and append :3000 at the end. Log in using admin/admin credentials. You will be prompted to set a new password for Grafana. You can set it to Password!. If you use anything else as a password, please remember it - or you may not be able to access Grafana in upcoming modules if desired!
 
 Once logged in, find the Portworx Volume Dashboard by navigating to left pane --> Dashboards --> Manage --> Portworx Volume Dashboard
 
@@ -207,14 +207,14 @@ Update the IOPS limits for the PVC
 Let's get our volume ID:
 
 .. code-block:: shell
-
-  VolName=$(pxctl volume list | grep "28 GiB" | awk '{print $2}' )
-
+  
+  PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
+  VolName=$(oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume list | grep "28 GiB" | awk '{print $2}' )
+  
 Then inspect the volume using the command:
 
 .. code-block:: shell
 
-  PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
   oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume inspect ${VolName}
   
 Next, let's update the MAX Read and Write IOPS for the volume to 750 IOPS:
