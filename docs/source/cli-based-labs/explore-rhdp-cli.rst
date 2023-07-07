@@ -19,7 +19,7 @@ Solution: 3
     
 Q2: What is the version of Kubernetes installed in this environment?
 
-1. 1.20
+1. 1.25
 2. 1.22
 3. 1.24
 
@@ -29,7 +29,7 @@ Hint:
     
     oc version | grep "Kubernetes Version"
 
-Solution: 1.22
+Solution: 1.25
 
 Q3: What is the status of the `kube-apiserver`?
 

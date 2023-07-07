@@ -13,6 +13,7 @@ Red Hat Demo Platform Command Line Labs
    :glob:
 
    explore-rhdp-cli
+   plugin-installation
    review-k8s-storage-cli
    vol-snaps-group-snaps-cli
    app-io-control-cli
