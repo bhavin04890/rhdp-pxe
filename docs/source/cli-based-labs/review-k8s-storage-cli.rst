@@ -256,15 +256,53 @@ Interact with the Demo application
 This demo application allows users to place orders that are saved in the backend MongoDB database. Use the following steps to register a new user and place a simple order. 
 
 1. Click on **Menu** on the Top Right and select **Register**.
+
+.. image:: images/pxbbq-1.jpg
+  :width: 600
+
 2. Enter your first name, last name, email address and password. Click Register. 
+
+.. image:: images/pxbbq-2.jpg
+  :width: 600
+
 3. Click on **Menu** on the Top Right and select **Order**. 
+
+.. image:: images/pxbbq-1.jpg
+  :width: 600
+
 4. Select a Main Dish, Couple of Side dishes and a drink. Click **Place Order**. 
+
+.. image:: images/pxbbq-3.jpg
+  :width: 600
+
+.. image:: images/pxbbq-4.jpg
+  :width: 600
+
 5. You can either click on the order confirmation, or navigate to **Order History** from the Top Right, to find your order. 
+
+.. image:: images/pxbbq-5.jpg
+  :width: 600
 
 Now that we have some data generated, let's proceed with the next section. 
 
 Inspect the MongoDB volume
 ~~~~~~~~~~
+
+We will inspect the MongoDB persistent volume using the Dynamic plugin that we installed in the previous module. 
+
+1. Navigate to the OpenShift web console using the link and credentials you received in the email and login using the `admin` user. 
+2. Go to Storage --> PersistentVolumeClaims --> and select the `pxbbq` project. 
+
+.. image:: images/pxbbq-6.jpg
+  :width: 600
+
+3. Select the `mongodb-pvc` persistent volume claim, and select the `Portworx` tab. This will give you details about the persistent volume, like the Replication Factor, Size, Format, where the replicas are stored on the OpenShift cluster, and the pod that is consuming the persistent volume claim. 
+
+.. image:: images/pxbbq-7.jpg
+  :width: 600
+
+In addition to the OpenShift Dynamic plugin, you can also use CLI commands to get the same details about the persistent volume. 
+
 Use the following command to inspect the MongoDB volume and look at the Portworx parameters configured for the volume:
 
 .. code-block:: shell
@@ -399,15 +437,20 @@ Inspect the volume
 ~~~~~~~~~~
 Let's take a look at what information Portworx gives us about our shared volume:
 
-.. code-block:: shell
+1. Navigate to the OpenShift Web console and log in as the `admin` user. 
+2. Go to Storage --> PersistentVolumeClaims --> and select the `sharedservice` project. 
 
-  VolName=`oc get pvc -n sharedservice | grep px-sharedv4-pvc | awk '{print $3}'`
-  PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
-  oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume inspect ${VolName}
+.. image:: images/sharedservice-1.jpg
+  :width: 600
 
+3. Select the `px-sharedv4-pvc` persistent volume claim, and select the `Portworx` tab. This will give you details about the persistent volume, like the Replication Factor, Size, Format, where the replicas are stored on the OpenShift cluster, and the pod that is consuming the persistent volume claim. 
+
+.. image:: images/sharedservice-2.jpg
+  :width: 600
+ 
 Note that we have four pods accessing the RWX volume for our demo!
 
-Inspect the sharedv4service Endpoint:
+Go back to the CLI, and inspect the sharedv4service Endpoint:
 
 .. code-block:: shell
 

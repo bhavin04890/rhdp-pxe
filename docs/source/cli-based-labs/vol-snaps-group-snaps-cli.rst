@@ -12,16 +12,21 @@ In this scenario, you will:
 
 Working with single volume snapshots
 -------------------------
-Before we take volume snapshots, let's navigate to the application UI that we deployed in the previous step, and verify that we can see Kubernetes logos on the page, if not, generate some data by clicking randomly on the screen before proceeding with the next step. 
+Before we take volume snapshots, let's navigate to the application UI that we deployed in the previous step, and verify that we can see order that we placed in the previous module.
 To find the LoadBalancer endpoint for our demo application, use the following command: 
 
 .. code-block:: shell
 
   oc get svc -n pxbbq pxbbq-svc
 
+Navigate to the application and login as the Demo user and look at the `Order History`
+
+.. image:: images/pxbbq-5.jpg
+  :width: 600
+  
 Create volumesnapshot config
 ~~~~~~~~~~
-Use the following yaml file to create a volume snapshot for your Postgres PVC.
+Use the following yaml file to create a volume snapshot for your MongoDB PVC.
 
 .. code-block:: shell 
 
@@ -75,6 +80,9 @@ Navigate to the Portworx BBQ App using the LoadBalancer endpoint from the below 
 .. code-block:: shell
 
   oc get svc -n pxbbq pxbbq-svc
+
+.. image:: images/pxbbq-8.jpg
+  :width: 600
 
 Restore our application from snapshot 
 ~~~~~~~~~~
@@ -198,14 +206,90 @@ Apply the yaml file:
 Verify the application has been completely restored
 ~~~~~~~~~~
 
-Access the application by navigating to the LoadBalancer endpoint and refreshing the page. All of our logos are back where they originally were!
+Access the application by navigating to the LoadBalancer endpoint and refreshing the page. Our original order will be back in our order history.
 If you need to find your LoadBalancer endpoint, use the following command: 
 
 .. code-block:: shell
   
   oc get svc -n pxbbq pxbbq-svc
 
+.. image:: images/pxbbq-5.jpg
+  :width: 600
+
 In this step, we took a snapshot of the persistent volume, deleted the database table and then restored our application by restoring the persistent volume using the snapshot!
+
+Portworx Group Volume Snapshots 
+-------------------------
+
+In this step we will install the cass-operator from Datastax to install Cassandra on our OpenShift cluster. 
+
+1. Navigate to the OpenShift Web Console, and go to Operators --> OperatorHub and search for the `cass-operator`. 
+
+.. image:: images/cass-0.jpg
+  :width: 600
+
+2. Select the `Certified` Operator from the results and click `Install`. 
+
+.. image:: images/cass-1.jpg
+  :width: 600
+
+3. Keep everything to default and click the `Install` button. 
+
+.. image:: images/cass-2.jpg
+  :width: 600
+
+4. Once the Operator is installed, verify by clicking on `View Operator`. Next, we will proceed with the Cassandra cluster deployment. 
+
+.. image:: images/cass-3.jpg
+  :width: 600
+
+5. Deploy Cassandra datacenter using the following spec: 
+
+.. code-block:: shell
+
+  cat << EOF >> /tmp/cass-dc.yaml
+  apiVersion: cassandra.datastax.com/v1beta1
+  kind: CassandraDatacenter
+  metadata:
+    name: dc1
+  spec:
+    clusterName: cluster1
+    serverType: cassandra
+    serverVersion: "3.11.7"
+    managementApiAuth:
+      insecure: {}
+    size: 3
+    storageConfig:
+      cassandraDataVolumeClaimSpec:
+        storageClassName: group-sc
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+    config:    
+      cassandra-yaml:
+        authenticator: org.apache.cassandra.auth.PasswordAuthenticator
+        authorizer: org.apache.cassandra.auth.CassandraAuthorizer
+        role_manager: org.apache.cassandra.auth.CassandraRoleManager
+      jvm-options:
+        initial_heap_size: "800M"
+        max_heap_size: "800M"
+        max_direct_memory: "800M"
+        additional-jvm-opts:
+          - "-Ddse.system_distributed_replication_dc_names=dc1"
+          - "-Ddse.system_distributed_replication_per_dc=3"
+  EOF
+
+
+
+
+
+
+
+
+
+
 
 Portworx Group Volume Snapshots
 -------------------------
