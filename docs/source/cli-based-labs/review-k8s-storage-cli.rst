@@ -67,6 +67,23 @@ Use the following command to look at all the storage classes deployed on your cl
 
   oc get sc 
 
+Let's navigate to the OpenShift web console and look at the storage classes we just deployed using the Portworx tabs. 
+  
+1. Navigate to the OpenShift web console and login using the credentials provided in the email. 
+2. Go to Storage --> StorageClasses from the left navigation window and select `block-sc` from the list of storage classes. 
+
+.. image:: images/sc-1.jpg
+  :width: 600
+
+3. Click on the `Portworx` tab. Here you can inspect the storage class and get more details about the different parameters set for Portworx. It also gives you a table of all the persistent volumes dynamically provisioned using that storage class. 
+
+.. image:: images/sc-2.jpg
+  :width: 600
+
+4. You can also inspect the `file-sc` storage class and look at the configuration details for it. 
+
+.. image:: images/sc-3.jpg
+  :width: 600
 
 Deploying demo application for ReadWriteOnce volumes
 -----------------------

@@ -218,79 +218,6 @@ If you need to find your LoadBalancer endpoint, use the following command:
 
 In this step, we took a snapshot of the persistent volume, deleted the database table and then restored our application by restoring the persistent volume using the snapshot!
 
-Portworx Group Volume Snapshots 
--------------------------
-
-In this step we will install the cass-operator from Datastax to install Cassandra on our OpenShift cluster. 
-
-1. Navigate to the OpenShift Web Console, and go to Operators --> OperatorHub and search for the `cass-operator`. 
-
-.. image:: images/cass-0.jpg
-  :width: 600
-
-2. Select the `Certified` Operator from the results and click `Install`. 
-
-.. image:: images/cass-1.jpg
-  :width: 600
-
-3. Keep everything to default and click the `Install` button. 
-
-.. image:: images/cass-2.jpg
-  :width: 600
-
-4. Once the Operator is installed, verify by clicking on `View Operator`. Next, we will proceed with the Cassandra cluster deployment. 
-
-.. image:: images/cass-3.jpg
-  :width: 600
-
-5. Deploy Cassandra datacenter using the following spec: 
-
-.. code-block:: shell
-
-  cat << EOF >> /tmp/cass-dc.yaml
-  apiVersion: cassandra.datastax.com/v1beta1
-  kind: CassandraDatacenter
-  metadata:
-    name: dc1
-  spec:
-    clusterName: cluster1
-    serverType: cassandra
-    serverVersion: "3.11.7"
-    managementApiAuth:
-      insecure: {}
-    size: 3
-    storageConfig:
-      cassandraDataVolumeClaimSpec:
-        storageClassName: group-sc
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 5Gi
-    config:    
-      cassandra-yaml:
-        authenticator: org.apache.cassandra.auth.PasswordAuthenticator
-        authorizer: org.apache.cassandra.auth.CassandraAuthorizer
-        role_manager: org.apache.cassandra.auth.CassandraRoleManager
-      jvm-options:
-        initial_heap_size: "800M"
-        max_heap_size: "800M"
-        max_direct_memory: "800M"
-        additional-jvm-opts:
-          - "-Ddse.system_distributed_replication_dc_names=dc1"
-          - "-Ddse.system_distributed_replication_per_dc=3"
-  EOF
-
-
-
-
-
-
-
-
-
-
-
 Portworx Group Volume Snapshots
 -------------------------
 In this step, we will look at how you can use Portworx Group Volume Snapshots and 3D snapshots - to take application consistent multi-PVC snapshots for your application.
@@ -318,14 +245,13 @@ Then apply the yaml to create it:
 
   oc apply -f /tmp/group-sc.yaml
 
-.. 
-  Create a new namespace 
-  ~~~~~~~~~~
-  #
-  .. code-block:: shell
-.. 
-  oc create ns groupsnaps
+Create pre-snap rule for Cassandra
+~~~~~~~~~~
 
+.. code-block:: shell
+
+  oc create ns groupsnaps
+  
 Create pre-snap rule for Cassandra
 ~~~~~~~~~~
 
@@ -354,10 +280,50 @@ Then apply the yaml file to create the rule:
 
 .. code-block:: shell
   
-  oc apply -f /tmp/cassandra-presnap-rule.yaml
+  oc apply -f /tmp/cassandra-presnap-rule.yaml -n groupsnaps
 
 Deploy Cassandra 
 ~~~~~~~~~~
+
+Create a ClusterRole, ClusterRoleBinding and Service Account to be used by Cassandra: 
+
+.. code-block:: shell
+
+  cat << EOF >> /tmp/cass-sa.yaml
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  metadata:
+    name: cass-clusterrole
+  rules:
+    - apiGroups: ['*']
+      resources: ['*']
+      verbs: ['*']
+  ---
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: cass-sa
+    namespace: groupsnaps
+  ---
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRoleBinding
+  metadata:
+    name: cass-clusterrolebinding
+  subjects:
+  - kind: ServiceAccount
+    name: cass-sa
+    namespace: groupsnaps 
+    apiGroup: ""
+  roleRef:
+    kind: ClusterRole
+    name: cass-clusterrole
+    apiGroup: rbac.authorization.k8s.io
+  EOF
+
+
+.. code-block:: shell
+
+  oc apply -f /tmp/cass-sa.yaml
 
 Deploy a Cassandra statefulset with 2 replicas to learn how Portworx GroupVolumeSnapshots work: 
 
@@ -392,6 +358,7 @@ Deploy a Cassandra statefulset with 2 replicas to learn how Portworx GroupVolume
         labels:
           app: cassandra
       spec:
+        serviceAccountName: cass-sa
         schedulerName: stork
         terminationGracePeriodSeconds: 1800
         containers:
@@ -422,14 +389,14 @@ Deploy a Cassandra statefulset with 2 replicas to learn how Portworx GroupVolume
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "PID=$(pidof java) && kill $PID && while ps -p $PID > /dev/null; do sleep 1; done"]
+                command: ["/bin/sh", "-c", "PID= && kill  && while ps -p  > /dev/null; do sleep 1; done"]
           env:
             - name: MAX_HEAP_SIZE
               value: 512M
             - name: HEAP_NEWSIZE
               value: 100M
             - name: CASSANDRA_SEEDS
-              value: "cassandra-0.cassandra.default.svc.cluster.local"
+              value: "cassandra-0.cassandra.groupsnaps.svc.cluster.local"
             - name: CASSANDRA_CLUSTER_NAME
               value: "K8Demo"
             - name: CASSANDRA_DC
@@ -480,6 +447,7 @@ Deploy a Cassandra statefulset with 2 replicas to learn how Portworx GroupVolume
   spec:
     containers:
     - name: cqlsh
+      serviceAccountName: cass-sa
       image: mikewright/cqlsh
       command:
         - sh
@@ -497,7 +465,7 @@ Watch until you see two Cassandra pods up and running with Ready 1/1 status:
 
 .. code-block:: shell
   
-  watch oc get pods,pvc 
+  watch oc get pods,pvc -n groupsnaps 
 
 Note: use CTRL+C to exit out of the watch command once both the cassandra pods are running.
 
@@ -508,13 +476,13 @@ Let's take a look at the status of our Cassandra nodes:
 
 .. code-block:: shell
 
-  oc exec -it cassandra-0 -- nodetool status
+  oc exec -it cassandra-0 -n groupsnaps -- nodetool status
 
 And let's add some data to our Cassandra instance pods so we can take a snapshot later by exec'ing into the cqlsh pod:
 
 .. code-block:: shell
 
-  oc exec -it cqlsh -- cqlsh cassandra-0.cassandra.default.svc.cluster.local --cqlversion=3.4.4
+  oc exec -it cqlsh -n groupsnaps -- cqlsh cassandra-0.cassandra.groupsnaps.svc.cluster.local --cqlversion=3.4.4
 
 And then populate our data: 
 
@@ -556,14 +524,14 @@ Apply the spec to execute the snapshot action:
 
 .. code-block:: shell
 
-  oc apply -f /tmp/cassandra-groupsnapshot.yaml
+  oc apply -f /tmp/cassandra-groupsnapshot.yaml -n groupsnaps
 
 Note that once the snapshots have completed successfully, you should see Snapshot created successfully and it is ready for both Cassandra volumes in the oc describe output:
 
 .. code-block:: shell
 
-  oc get groupvolumesnapshot 
-  oc describe groupvolumesnapshot cassandra-group-snapshot
+  oc get groupvolumesnapshot -n groupsnaps
+  oc describe groupvolumesnapshot cassandra-group-snapshot -n groupsnaps
 
 Drop the Portworx keyspace
 ~~~~~~~~~~
@@ -571,7 +539,7 @@ Now that we have a snapshot, let's exec into the cqlsh pod again:
 
 .. code-block:: shell
 
-  oc exec -it cqlsh -- cqlsh cassandra-0.cassandra.default.svc.cluster.local --cqlversion=3.4.4
+  oc exec -it cqlsh -n groupsnaps -- cqlsh cassandra-0.cassandra.groupsnaps.svc.cluster.local --cqlversion=3.4.4
 
 And then drop the Portworx keyspace from Cassandra, to see if we can restore successfully:
 
@@ -586,14 +554,14 @@ We will start by deleting the Cassandra statefulset, Creating new PVCs using the
 
 .. code-block:: shell
   
-  oc delete sts cassandra
+  oc delete sts cassandra -n groupsnaps
 
 And let's get the snapshot names and assign them into variables
 
 .. code-block:: shell
 
-  SNAP0=$(oc get volumesnapshotdatas.volumesnapshot.external-storage.k8s.io -o jsonpath='{.items[0].metadata.name}')
-  SNAP1=$(oc get volumesnapshotdatas.volumesnapshot.external-storage.k8s.io -o jsonpath='{.items[1].metadata.name}')
+  SNAP0=$(oc get volumesnapshotdatas.volumesnapshot.external-storage.k8s.io -n groupsnaps -o jsonpath='{.items[0].metadata.name}')
+  SNAP1=$(oc get volumesnapshotdatas.volumesnapshot.external-storage.k8s.io -n groupsnaps -o jsonpath='{.items[1].metadata.name}')
 
 Now let's create a new yaml file for our PVC objects that will be deployed from our snapshots:
 
@@ -633,13 +601,13 @@ Now deploy the PVCs using the snapshots:
 
 .. code-block:: shell
 
-  oc apply -f /tmp/restoregrouppvc.yaml
+  oc apply -f /tmp/restoregrouppvc.yaml -n groupsnaps
 
 Inspect the PVCs deployed from the snapshots:
 
 .. code-block:: shell
 
-  oc get pvc 
+  oc get pvc -n groupsnaps
 
 Once you have these PVCs deployed, you can redeploy the Cassandra statefulset.
 
@@ -664,6 +632,7 @@ Once you have these PVCs deployed, you can redeploy the Cassandra statefulset.
       spec:
         # Use the stork scheduler to enable more efficient placement of the pods
         schedulerName: stork
+        serviceAccountName: cass-sa
         terminationGracePeriodSeconds: 1800
         containers:
         - name: cassandra
@@ -700,7 +669,7 @@ Once you have these PVCs deployed, you can redeploy the Cassandra statefulset.
             - name: HEAP_NEWSIZE
               value: 100M
             - name: CASSANDRA_SEEDS
-              value: "cassandra-0.cassandra.default.svc.cluster.local"
+              value: "cassandra-0.cassandra.groupsnaps.svc.cluster.local"
             - name: CASSANDRA_CLUSTER_NAME
               value: "K8Demo"
             - name: CASSANDRA_DC
@@ -744,13 +713,13 @@ Apply the yaml file:
 
 .. code-block:: shell
    
-  oc apply -f /tmp/cassandra-restore-app.yaml
+  oc apply -f /tmp/cassandra-restore-app.yaml -n groupsnaps
 
 Inspect the Pods and PVCs deployed to restore our Cassandra instance:
 
 .. code-block:: shell
 
-  watch oc get pods,pvc
+  watch oc get pods,pvc -n groupsnaps
 
 Note: Use ctrl-c once all the pods are in running state. 
 
@@ -761,7 +730,7 @@ Let's verify that all of our data was restored:
 
 .. code-block:: shell
   
-  oc exec -it cqlsh -- cqlsh cassandra-0.cassandra.default.svc.cluster.local --cqlversion=3.4.4
+  oc exec -it cqlsh -n groupsnaps -- cqlsh cassandra-0.cassandra.groupsnaps.svc.cluster.local --cqlversion=3.4.4
 
 
 .. code-block:: shell
@@ -779,13 +748,14 @@ Use the following commands to delete objects used for this specific scenario:
 
 .. code-block:: shell
 
-  kubectl delete -f /tmp/cassandra-app.yaml 
-  kubectl delete -f /tmp/restoregrouppvc.yaml
-  kubectl delete -f /tmp/cassandra-groupsnapshot.yaml
+  kubectl delete -f /tmp/cassandra-app.yaml -n groupsnaps
+  kubectl delete -f /tmp/restoregrouppvc.yaml -n groupsnaps
+  kubectl delete -f /tmp/cassandra-groupsnapshot.yaml -n groupsnaps
   kubectl delete -f /tmp/mongo-snapshot.yaml
   kubectl delete -f /tmp/pxbbq-mongo-restore.yaml -n pxbbq
   kubectl delete -f /tmp/pxbbq-frontend.yaml -n pxbbq
   kubectl delete ns pxbbq
+  kubectl delete ns groupsnaps
   kubectl wait --for=delete ns/pxbbq --timeout=60s
 
 To learn more about `Portworx <https://portworx.com/>`__, below are some useful references. 
