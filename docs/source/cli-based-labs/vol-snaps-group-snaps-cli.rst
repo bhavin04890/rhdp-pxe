@@ -459,7 +459,7 @@ Apply the yaml file to create the Cassandra deployment
 
 .. code-block:: shell
 
-  oc apply -f /tmp/cassandra-app.yaml
+  oc apply -f /tmp/cassandra-app.yaml -n groupsnaps
 
 Watch until you see two Cassandra pods up and running with Ready 1/1 status:
 

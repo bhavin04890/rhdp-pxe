@@ -49,6 +49,8 @@ Let's create a namespace to use:
 
   oc create ns trashcan
 
+.. code-block:: shell
+
   cat << EOF >> /tmp/pxbbq-mongo-tc.yaml
   ---
   apiVersion: "v1"
@@ -131,7 +133,7 @@ Let's create a namespace to use:
 
 .. code-block:: shell
 
-  oc create -f /tmp/pxbbq-mongo.yaml
+  oc create -f /tmp/pxbbq-mongo-tc.yaml
 
 Deploy the front-end components for the application in the `demo` namespace
 ~~~~~~~~~~
@@ -193,14 +195,12 @@ Deploy the front-end components for the application in the `demo` namespace
 
 .. code-block:: shell
 
-  oc create -f /tmp/pxbbq-mongo-tc.yaml
-  sleep 10
   oc apply -f /tmp/pxbbq-frontend-tc.yaml
 
 Access the application
 ~~~~~~~~~~
 
-Access the demo application using the LoadBalancer endpoint from the command below, and place some orders to store in the backend MongoDB database.
+Access the demo application using the LoadBalancer endpoint from the command below, and place some orders to store in the backend MongoDB database. If you need help placing orders, please refer to the 3.2.6 module of the workshop. 
 
 .. code-block:: shell
    
@@ -213,7 +213,7 @@ Next, let's "accidentally" delete the postgres pod and persistent volume:
 
 .. code-block:: shell
 
-  oc delete -f /tmp/pxbbq-mongo-tc.yaml -n trashcan
+  oc delete -f /tmp/pxbbq-mongo-tc.yaml
 
 Wait for the delete to complete before continuing.
 
@@ -293,7 +293,7 @@ And redeploy the web front end:
 Verify the restore by accessing the app
 ~~~~~~~~~~
 
-Navigate to the Demo App UI by using the LoadBalancer endpoint from the command below and see that our data is back! You may have to click on the refresh icon in order to see the icons come back.
+Navigate to the Demo App UI by using the LoadBalancer endpoint from the command below and see that our orders are back! 
 
 .. code-block:: shell
 
@@ -310,6 +310,9 @@ Use the following commands to delete objects used for this specific scenario:
 
   PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
   oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl cluster options update --volume-expiration-minutes 0
+  
+.. code-block:: shell 
+  
   oc delete -f /tmp/pxbbq-frontend-tc.yaml 
   oc delete -f /tmp/pxbbq-mongo-tc.yaml
   oc delete ns trashcan
