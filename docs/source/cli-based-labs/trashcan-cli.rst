@@ -49,6 +49,9 @@ Let's create a namespace to use:
 
   oc create ns trashcan
 
+Deploy the mongodb backend for the application
+~~~~~~~~~~
+
 .. code-block:: shell
 
   cat << EOF >> /tmp/pxbbq-mongo-tc.yaml
@@ -135,7 +138,7 @@ Let's create a namespace to use:
 
   oc create -f /tmp/pxbbq-mongo-tc.yaml
 
-Deploy the front-end components for the application in the `demo` namespace
+Deploy the front-end components for the application
 ~~~~~~~~~~
 
 .. code-block:: shell
@@ -228,6 +231,9 @@ Let's use pxctl commands to restore our volume from the trashcan:
   
   PX_POD=$(oc get pods -l name=portworx -n portworx -o jsonpath='{.items[0].metadata.name}')
   VolMongo=$(oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume list --trashcan | grep "5 GiB" | awk '{print $8}')
+
+.. code-block:: shell
+
   oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume restore --trashcan $VolMongo pvc-restoredvol
   VolId=$(oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume list | grep "pvc-restoredvol" | awk '{print $1}' )
 
