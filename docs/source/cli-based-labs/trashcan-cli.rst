@@ -1,5 +1,5 @@
 =========================================
-Volume Trashcan
+Protect againt accidental volume deletion using Portworx Volume Trashcan
 =========================================
 
 Ever had that sinking feeling after deleting a critical volume, disk, or file? The Portworx Volume Trashcan feature provides protection against accidental or inadvertent volume deletions which could result in loss of data. Volume Trashcan is disabled by default, but can be enabled using a simple pxctl command. Let's test it out!
@@ -22,7 +22,7 @@ Review the yaml for the StorageClass that we'll use - note the reclaimPolicy is 
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/trashcan-sc.yaml
+  cat << EOF > /tmp/trashcan-sc.yaml
   kind: StorageClass
   apiVersion: storage.k8s.io/v1
   metadata:
@@ -54,7 +54,7 @@ Deploy the mongodb backend for the application
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/pxbbq-mongo-tc.yaml
+  cat << EOF > /tmp/pxbbq-mongo-tc.yaml
   ---
   apiVersion: "v1"
   kind: "PersistentVolumeClaim"
@@ -143,7 +143,7 @@ Deploy the front-end components for the application
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/pxbbq-frontend-tc.yaml
+  cat << EOF > /tmp/pxbbq-frontend-tc.yaml
   ---
   apiVersion: apps/v1
   kind: Deployment                 
@@ -244,7 +244,7 @@ Now that we've restored the volume from the trashcan, let's create the yaml to t
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/recoverpv.yaml
+  cat << EOF > /tmp/recoverpv.yaml
   apiVersion: v1
   kind: PersistentVolume
   metadata:

@@ -1,5 +1,5 @@
 =======================================
-StorageClasses, RWO, and RWX Volumes
+Dynamic Volume provisioning for stateful applications
 =======================================
 In this scenario, you'll learn about Portworx Enterprise StorageClass parameters and deploy demo applications that use RWO (ReadWriteOnce) and RWX (ReadWriteMany) Persistent Volumes provisioned by Portworx Enterprise.
 
@@ -13,7 +13,7 @@ Run the following command to create a new yaml file for the block-based StorageC
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/block-sc.yaml
+  cat << EOF > /tmp/block-sc.yaml
   kind: StorageClass
   apiVersion: storage.k8s.io/v1
   metadata:
@@ -39,7 +39,7 @@ Run the following command to create a new yaml file for the file-based StorageCl
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/file-sc.yaml
+  cat << EOF > /tmp/file-sc.yaml
   kind: StorageClass
   apiVersion: storage.k8s.io/v1
   metadata:
@@ -102,7 +102,7 @@ Deploy the PostgreSQL database resources in the "demo" namespace
 
 .. code-block:: shell 
 
-  cat << EOF >> /tmp/pxbbq-mongo.yaml
+  cat << EOF > /tmp/pxbbq-mongo.yaml
   ---
   apiVersion: "v1"
   kind: "PersistentVolumeClaim"
@@ -191,7 +191,7 @@ Deploy the front-end components for the application in the `demo` namespace
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/pxbbq-frontend.yaml
+  cat << EOF > /tmp/pxbbq-frontend.yaml
   ---
   apiVersion: apps/v1
   kind: Deployment                 
@@ -349,7 +349,7 @@ Review the yaml for the RWX PVC:
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/sharedpvc.yaml
+  cat << EOF > /tmp/sharedpvc.yaml
   kind: PersistentVolumeClaim
   apiVersion: v1
   metadata:
@@ -376,7 +376,7 @@ Create a new yaml file to deploy the busybox pod yaml we'll be using:
 
 .. code-block:: shell 
 
-  cat << EOF >> /tmp/busyboxpod.yaml
+  cat << EOF > /tmp/busyboxpod.yaml
   apiVersion: apps/v1
   kind: Deployment
   metadata:

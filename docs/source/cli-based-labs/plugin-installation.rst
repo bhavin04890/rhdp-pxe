@@ -1,5 +1,5 @@
 =========================================
-Installing OpenShift Dynamic console plugin
+Installing the OpenShift Dynamic console plugin from Portworx
 =========================================
 
 Enabling the OpenShift Dynamic console plugin

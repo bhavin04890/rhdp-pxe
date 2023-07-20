@@ -1,5 +1,5 @@
 ========================================
-Automated Volume Expansion using Portworx Autopilot
+Automated storage capacity management using Portworx Autopilot
 ========================================
 
 Portworx Autopilot is a rule-based engine that responds to changes from a monitoring source. Autopilot allows you to specify monitoring conditions along with actions it should take when those conditions occur.
@@ -22,7 +22,7 @@ Keep in mind, an AutoPilot Rule has 4 main parts.
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/autopilotrule.yaml
+  cat << EOF > /tmp/autopilotrule.yaml
   apiVersion: autopilot.libopenstorage.org/v1alpha1
   kind: AutopilotRule
   metadata:
@@ -38,12 +38,12 @@ Keep in mind, an AutoPilot Rule has 4 main parts.
         type: db
     ##### conditions are the symptoms to evaluate. All conditions are AND'ed
     conditions:
-      # volume usage should be less than 30%
+      # volume usage should be less than 20%
       expressions:
       - key: "100 * (px_volume_usage_bytes / px_volume_capacity_bytes)"
         operator: Gt
         values:
-          - "30"
+          - "20"
     ##### action to perform when condition is true
     actions:
     - name: openstorage.io.action.volume/resize
@@ -68,7 +68,7 @@ Since our Portworx Autopilot rule only targets namespaces that have the label ty
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/namespaces.yaml
+  cat << EOF > /tmp/namespaces.yaml
   apiVersion: v1
   kind: Namespace
   metadata:
@@ -90,7 +90,7 @@ Let's create clusterrole, clusterrolebinding and a serviceaccount for our Postgr
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/pg-sa.yaml
+  cat << EOF > /tmp/pg-sa.yaml
   apiVersion: rbac.authorization.k8s.io/v1
   kind: ClusterRole
   metadata:
@@ -129,7 +129,7 @@ Next, let's create a yaml file for our Postgres PVCs and apply that yaml file.
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/autopilot-postgres.yaml
+  cat << EOF > /tmp/autopilot-postgres.yaml
   kind: PersistentVolumeClaim
   apiVersion: v1
   metadata:
@@ -165,7 +165,7 @@ Next, let's create a yaml file for our Postgres and pgbench pods and then apply 
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/autopilot-app.yaml
+  cat << EOF > /tmp/autopilot-app.yaml
 
   apiVersion: apps/v1
   kind: Deployment

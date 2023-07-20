@@ -1,5 +1,5 @@
 ===================================
-No More Noisy Neighbors using Portworx Application IO Control
+No More Noisy Neighbors on OpenShift using Portworx Application IO Control
 ===================================
 
 Using Application IO Control
@@ -48,7 +48,7 @@ Create the grafana yaml file using the following command:
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/grafana.yaml
+  cat << EOF > /tmp/grafana.yaml
   apiVersion: apps/v1
   kind: Deployment
   metadata:
@@ -140,7 +140,7 @@ Downloading Kubestr and creating FIO profiles
 
 .. code-block:: shell
 
-  cat << EOF >> /tmp/rand-write.fio
+  cat << EOF > /tmp/rand-write.fio
   ##Random Write 4k blocksize test
   [global]
   ioengine=libaio
