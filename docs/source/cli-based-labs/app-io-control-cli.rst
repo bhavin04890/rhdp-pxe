@@ -193,13 +193,28 @@ Use the following command to access the LoadBalancer endpoint for the Grafana in
 
 Navigate to the LoadBalancer endpoint and append :3000 at the end. Log in using admin/admin credentials. You will be prompted to set a new password for Grafana. You can set it to Password!. If you use anything else as a password, please remember it - or you may not be able to access Grafana in upcoming modules if desired!
 
+.. image:: images/grafana-0.jpg
+  :width: 600
+
+.. image:: images/grafana-1.jpg
+  :width: 600
+
 Once logged in, find the Portworx Volume Dashboard by navigating to left pane --> Dashboards --> Manage --> Portworx Volume Dashboard
 
+.. image:: images/appio-0.jpg
+  :width: 600
+
 On the Volume Dashboard, find your persistent volume using the PVC ID from Task 2 in the Volume Name drop down.
+
+.. image:: images/appio-1.jpg
+  :width: 600
 
 After you have selected the right volume, find the Volume IOPS pane, click View from the dropdown, and then change the timeline view to last 5 mins (defaults to last 3 hours) using the drop down box in the upper right corner of Grafana.
 
 You should see the current IOPS load on the volume is more than 5000.
+
+.. image:: images/appio-2.jpg
+  :width: 600
 
 Update the IOPS limits for the PVC
 ~~~~~~~~~~
@@ -232,6 +247,9 @@ After updating the volume, we can observe the new IOPS settings via pxctl:
 Monitor the updated IOPS numbers using Portworx Volume Dashboard
 ~~~~~~~~~~
 Navigate back to the Grafana UI and find the Volume IOPS pane for our volume again. You should see the current IOPS number is now set to below 750.
+
+.. image:: images/appio-3.jpg
+  :width: 600
 
 Note: Grafana takes a couple of minute to reflect the changes, so if you dont see the drop in IOPS right away, wait a couple of minutes and refresh the page again.
 

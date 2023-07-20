@@ -235,7 +235,12 @@ Let's use pxctl commands to restore our volume from the trashcan:
 .. code-block:: shell
 
   oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume restore --trashcan $VolMongo pvc-restoredvol
+
+
+.. code-block:: shell
+
   VolId=$(oc exec -it $PX_POD -n portworx -- /opt/pwx/bin/pxctl volume list | grep "pvc-restoredvol" | awk '{print $1}' )
+
 
 Create a persistent volume from the recovered portworx volume
 ~~~~~~~~~~

@@ -11,7 +11,7 @@ Autopilot rules allow users to create IFTTT (IF This Then That) rules, where Aut
 
 Let's create a simple rule that will monitor persistent volumes associated with objects that have the app: postgres label and in namespaces that have the label ``type: db``.
 
-It will keep volumes underneath 30% used capacity, and if capacity usage grows to or above 30%, it will automatically grow the persistent volume and underlying filesystem by 100% of the current volume size, up to a maximum volume size of 50Gi:
+It will keep volumes underneath 30% used capacity, and if capacity usage grows to or above 20%, it will automatically grow the persistent volume and underlying filesystem by 100% of the current volume size, up to a maximum volume size of 50Gi:
 
 Keep in mind, an AutoPilot Rule has 4 main parts.
 
@@ -166,7 +166,6 @@ Next, let's create a yaml file for our Postgres and pgbench pods and then apply 
 .. code-block:: shell
 
   cat << EOF > /tmp/autopilot-app.yaml
-
   apiVersion: apps/v1
   kind: Deployment
   metadata:
@@ -235,7 +234,6 @@ Next, let's create a yaml file for our Postgres and pgbench pods and then apply 
 
   oc apply -f /tmp/autopilot-app.yaml -n pg1
 
-
 Verify that the application is deployed and pgbench is writing data to the postgres database. 
 
 .. code-block:: shell
@@ -246,7 +244,6 @@ Verify that the application is deployed and pgbench is writing data to the postg
 
   POSTGRES_POD=$(kubectl get pods -n pg1 | grep 2/2 | awk '{print $1}')
   oc logs $POSTGRES_POD -n pg1 pgbench
-
 
 Observe the Portworx Autopilot events
 ~~~~~~~~~~
