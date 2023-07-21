@@ -11,7 +11,7 @@ Autopilot rules allow users to create IFTTT (IF This Then That) rules, where Aut
 
 Let's create a simple rule that will monitor persistent volumes associated with objects that have the app: postgres label and in namespaces that have the label ``type: db``.
 
-It will keep volumes underneath 30% used capacity, and if capacity usage grows to or above 20%, it will automatically grow the persistent volume and underlying filesystem by 100% of the current volume size, up to a maximum volume size of 50Gi:
+If capacity usage grows to or above 20%, it will automatically grow the persistent volume and underlying filesystem by 20% of the current volume size, up to a maximum volume size of 50Gi:
 
 Keep in mind, an AutoPilot Rule has 4 main parts.
 
@@ -49,7 +49,7 @@ Keep in mind, an AutoPilot Rule has 4 main parts.
     - name: openstorage.io.action.volume/resize
       params:
         # resize volume by scalepercentage of current size
-        scalepercentage: "100"
+        scalepercentage: "20"
         # volume capacity should not exceed 50GiB
         maxsize: "50Gi"
   EOF
@@ -142,7 +142,7 @@ Next, let's create a yaml file for our Postgres PVCs and apply that yaml file.
       - ReadWriteOnce
     resources:
       requests:
-        storage: 5Gi
+        storage: 10Gi
   ---
   kind: PersistentVolumeClaim
   apiVersion: v1
@@ -215,7 +215,7 @@ Next, let's create a yaml file for our Postgres and pgbench pods and then apply 
               - name: PG_USER
                 value: pgbench
               - name: SIZE
-                value: "15"
+                value: "11"
             volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: pgbenchdb
