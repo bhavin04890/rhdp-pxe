@@ -67,7 +67,7 @@ Create the grafana yaml file using the following command:
           app: grafana
       spec:
         containers:
-          - image: grafana/grafana:7.3.0
+          - image: grafana/grafana:7.5.17
             name: grafana
             imagePullPolicy: IfNotPresent
             resources:
